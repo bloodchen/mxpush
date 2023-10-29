@@ -1,0 +1,8 @@
+node_modules/
+npm-debug.log
+.DS_Store
+temp/
+*.sh
+data/*
+.git
+.DS_Store

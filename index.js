@@ -10,7 +10,7 @@ export const app = fastifyModule({ logger: false });
 async function startServer() {
     const port = process.env.port || 8080
     await app.listen({ port, host: '0.0.0.0' });
-    console.log("Starting login service on:", port)
+    console.log("Starting mxpush service on:", port)
 }
 dotenv.config()
 startServer()
