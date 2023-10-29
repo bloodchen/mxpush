@@ -37,7 +37,7 @@ app.post('/mxpush/post', async (req, res) => {
         const uid = item.uid
         if (!uid) return { code: 100, msg: 'uid is missing' }
         const uids = uid.split(',')
-        for (u of uids) {
+        for (const u of uids) {
             const session = clients[u]
             if (session) {
                 session.push(item.data, eventName)
