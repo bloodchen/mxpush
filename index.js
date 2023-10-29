@@ -17,14 +17,16 @@ startServer()
 let count = 0
 const clients = {}
 app.get('/mxpush/get', async (req, res) => {
-    console.log("got one connection. total = ", ++count)
     const { uid } = req.query
     if (!uid) return { code: 100, msg: 'uid is missing' }
+    if (clients[uid]) return { code: 101, msg: 'already connected' }
+    console.log(uid, "connected. total = ", ++count)
     const eventName = process.env.eventName || 'mxpush'
     const session = await createSession(req.raw, res.raw, { headers: { "Access-Control-Allow-Origin": '*' } })
     clients[uid] = session
     session.on("disconnected", () => {
-        console.log("one user disconnected. total = ", --count)
+        console.log(uid, "disconnected. total = ", --count)
+        delete clients[uid]
     })
     session.push('connected', eventName)
 })
@@ -37,13 +39,14 @@ app.post('/mxpush/post', async (req, res) => {
         const uid = item.uid
         if (!uid) return { code: 100, msg: 'uid is missing' }
         const uids = uid.split(',')
-        for (const u of uids) {
-            const session = clients[u]
+        uids.forEach(id => {
+            const session = clients[id]
             if (session) {
                 session.push(item.data, eventName)
+                console.log('push to:', id, ' data:', item.data)
                 delivered++
             }
-        }
+        })
     }
     return { code: 0, delivered }
 })
