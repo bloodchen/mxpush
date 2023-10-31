@@ -16,7 +16,13 @@ dotenv.config()
 startServer()
 let count = 0
 const clients = {}
-app.get('/mxpush/get', async (req, res) => {
+app.get('/mxpush/url', async (req, res) => {
+    return { url: 'this' }
+})
+app.get('/mxpush/status', async (req, res) => {
+    return { count }
+})
+app.get('/mxpush/connect', async (req, res) => {
     const { uid } = req.query
     if (!uid) return { code: 100, msg: 'uid is missing' }
     if (clients[uid]) return { code: 101, msg: 'already connected' }
