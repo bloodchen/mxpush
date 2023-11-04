@@ -49,19 +49,18 @@ app.get('/mxpush/status', async (req, res) => {
     return { count }
 })
 app.get('/mxpush/connect', async (req, res) => {
-    const { uid, token, type = 'mx' } = req.query
-    if (!uid) return { code: 100, msg: 'uid is missing' }
-    if (clients[uid]) return { code: 101, msg: 'already connected' }
+    const { token, type = 'mx' } = req.query
     const { user_id } = userFromToken({ token })
-    if (uid != user_id) return { code: 102, msg: 'invalid user' }
+    if (!user_id) return { code: 100, msg: 'invalid user' }
+    if (clients[user_id]) return { code: 101, msg: 'already connected' }
 
-    console.log(uid, "connected. total = ", ++count)
+    console.log(user_id, "connected. total = ", ++count)
     const eventName = process.env.eventName || 'mxpush'
     const session = await createSession(req.raw, res.raw, { headers: { "Access-Control-Allow-Origin": '*' } })
-    clients[uid] = session
+    clients[user_id] = session
     session.on("disconnected", () => {
-        console.log(uid, "disconnected. total = ", --count)
-        delete clients[uid]
+        console.log(user_id, "disconnected. total = ", --count)
+        delete clients[user_id]
     })
     session.push('connected', eventName)
 })
