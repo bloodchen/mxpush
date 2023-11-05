@@ -59,7 +59,7 @@ app.get('/mxpush/connect', async (req, res) => {
     const session = await createSession(req.raw, res.raw, { headers: { "Access-Control-Allow-Origin": '*' } })
     clients[user_id] = session
     session.on("disconnected", () => {
-        console.log(user_id, "disconnected. total = ", --count)
+        console.log(`[${user_id}]`, "disconnected. total = ", --count)
         delete clients[user_id]
     })
     session.push('connected', eventName)
