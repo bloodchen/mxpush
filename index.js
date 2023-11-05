@@ -54,7 +54,7 @@ app.get('/mxpush/connect', async (req, res) => {
     if (!user_id) return { code: 100, msg: 'invalid user' }
     if (clients[user_id]) return { code: 101, msg: 'already connected' }
 
-    console.log(user_id, "connected. total = ", ++count)
+    console.log(`[${user_id}]`, "connected. total = ", ++count)
     const eventName = process.env.eventName || 'mxpush'
     const session = await createSession(req.raw, res.raw, { headers: { "Access-Control-Allow-Origin": '*' } })
     clients[user_id] = session
