@@ -42,6 +42,9 @@ dotenv.config()
 startServer()
 let count = 0
 const clients = {}
+app.get('/', (req, res) => {
+    return "ok"
+})
 app.get('/mxpush/url', async (req, res) => {
     return { url: 'this' }
 })
