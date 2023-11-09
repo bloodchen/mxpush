@@ -1,19 +1,37 @@
 import fastifyModule from 'fastify';
 import crypto from 'crypto';
 import dotenv from "dotenv";
-import pkg from "better-sse";
+import socketIO from "fastify-socket.io"
 
 import { config } from './config.js'
 
 const tokenPass = "2rnma5xsctJhx1Z$#%^09FYkRfuAsxTB"
-const { createSession } = pkg;
 
 export const app = fastifyModule({ logger: false });
 
+let count = 0
 async function startServer() {
+    app.register(socketIO, {
+        cors: {
+            "origin": "*",
+            credentials: true,
+            "methods": "GET,HEAD,PUT,PATCH,POST,DELETE",
+            "preflightContinue": false,
+            "optionsSuccessStatus": 204
+        },
+    })
     const port = process.env.port || 8080
     await app.listen({ port, host: '0.0.0.0' });
     console.log("Starting mxpush service on:", port)
+    app.io.on("connection", (socket) => {
+        console.log(socket.id, ': connected auth:', socket.handshake.auth, 'count:', ++count)
+        socket.on("hello", async (obj, ret) => {
+        })
+        socket.on("disconnect", (reason) => {
+            console.log(socket.id, ': disconnected', ' count:', --count)
+        })
+    })
+
 }
 function decrypt({ data, password, from_encoding = 'hex', to_encoding = 'utf8', length = 256 }) {
     try {
@@ -40,7 +58,6 @@ function userFromToken({ token }) {
 }
 dotenv.config()
 startServer()
-let count = 0
 const clients = {}
 app.get('/', (req, res) => {
     return "ok"
@@ -73,7 +90,7 @@ app.post('/mxpush/post', async (req, res) => {
     let delivered = 0
     if (config.apiKeys.indexOf(key) === -1) return { code: 101, msg: 'invalid call' }
     for (const item of items) {
-        const { uid } = item
+        const { uid, id, ret = false } = item
         if (!uid) return { code: 100, msg: 'uid is missing' }
         const uids = uid.split(',')
         let undeliverd = ""
