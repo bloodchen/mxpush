@@ -58,9 +58,14 @@ app.server.on('upgrade', (req, socket, head) => {
 */
 async function startServer() {
     await app.register(cors, { origin: true, credentials: true, allowedHeaders: ['content-type'] });
+    app.addHook("preHandler", async (req, res) => {
+        console.log(req.url)
+    })
     const port = process.env.port || 8080
     await app.listen({ port, host: '0.0.0.0' });
     console.log("Starting mxpush service on:", port)
+
+
 }
 function decrypt({ data, password, from_encoding = 'hex', to_encoding = 'utf8', length = 256 }) {
     try {
@@ -87,6 +92,7 @@ function userFromToken({ token }) {
 dotenv.config()
 startServer()
 app.get('/', (req, res) => {
+    console.log(req.url)
     return "ok"
 })
 app.get('/mxpush/url', async (req, res) => {
