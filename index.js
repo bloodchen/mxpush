@@ -12,7 +12,7 @@ let count = 0
 
 const app = fastifyModule({ logger: false });
 const wsServer = new WebSocketServer({ noServer: true });
-
+/*
 wsServer.on('connection', (socket, req) => {
     const ip = req.socket.remoteAddress;
     console.log(socket.uid, ' connected. count:', ++count)
@@ -55,15 +55,12 @@ app.server.on('upgrade', (req, socket, head) => {
         clients[uid] = ws
     });
 });
-
+*/
 async function startServer() {
     await app.register(cors, { origin: true, credentials: true, allowedHeaders: ['content-type'] });
-
     const port = process.env.port || 8080
     await app.listen({ port, host: '0.0.0.0' });
     console.log("Starting mxpush service on:", port)
-
-
 }
 function decrypt({ data, password, from_encoding = 'hex', to_encoding = 'utf8', length = 256 }) {
     try {
