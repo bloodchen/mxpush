@@ -59,6 +59,10 @@ app.server.on('upgrade', (req, socket, head) => {
 async function startServer() {
     await app.register(cors, { origin: true, credentials: true, allowedHeaders: ['content-type'] });
     app.addHook("preHandler", async (req, res) => {
+        if (req.url.indexOf('/socket.io/') != -1) {
+            res.code(404).send("ok")
+            return
+        }
         console.log(req.url)
     })
     const port = process.env.port || 8080
