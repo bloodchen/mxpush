@@ -29,13 +29,9 @@ wsServer.on('close', () => {
     console.log("sever closed")
 })
 
-function getUID({ req, auth = 'mx' }) {
-    const { MXTOKEN } = req.headers?.cookie || {};
-    console.log(req.headers.cookie)
-    //const MXTOKEN = "sS8O3gzqXfU/erD+/miNBvU/dBQANIMDXO93Kw94NUpfyZ5Al1J1lH+YTVpLkF9U"
-    if (!MXTOKEN) console.error("error getting token")
-    const { user_id } = userFromToken({ token: MXTOKEN })
-    return user_id
+function authenticate({ req, token, auth = 'mx' }) {
+    const { user_id } = userFromToken({ token })
+    return !!user_id
 }
 // 处理升级请求，同时考虑CORS
 app.server.on('upgrade', (req, socket, head) => {
@@ -45,8 +41,10 @@ app.server.on('upgrade', (req, socket, head) => {
     const url = new URL(req.url, `http://${req.headers.host}`)
     const params = url.searchParams
     const auth = params.get('auth')
-    const uid = getUID({ req, auth });
-    if (!uid) {
+    const token = params.get('token')
+    const uid = params.get('uid')
+    const isAuth = authenticate({ req, token, auth });
+    if (!isAuth || !uid) {
         socket.write(JSON.stringify({ code: 100, msg: 'No Access' }));
         socket.destroy();
         return;
