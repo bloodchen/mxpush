@@ -15,5 +15,5 @@ USER node
 
 EXPOSE 8080
 
-CMD ["node","index_socket.js"]
+CMD ["node","index.js"]
 #ENTRYPOINT ["tail", "-f", "/dev/null"]
