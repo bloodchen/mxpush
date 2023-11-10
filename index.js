@@ -1,19 +1,70 @@
 import fastifyModule from 'fastify';
+import cors from '@fastify/cors'
 import crypto from 'crypto';
 import dotenv from "dotenv";
-import pkg from "better-sse";
+import { WebSocketServer } from 'ws';
 
 import { config } from './config.js'
 
 const tokenPass = "2rnma5xsctJhx1Z$#%^09FYkRfuAsxTB"
-const { createSession } = pkg;
+const clients = {}
+let count = 0
 
-export const app = fastifyModule({ logger: false });
+const app = fastifyModule({ logger: false });
+const wsServer = new WebSocketServer({ noServer: true });
+
+wsServer.on('connection', (socket, req) => {
+    const ip = req.socket.remoteAddress;
+    console.log(socket.uid, ' connected. count:', ++count)
+
+    socket.on('message', message => {
+        console.log(`Received message: ${message}`);
+        socket.send(`Hello, you sent -> ${message}`);
+    });
+    socket.on("close", (reason) => {
+        console.log(socket.uid, ': disconnected', 'reason:', reason, ' count:', --count)
+    })
+});
+wsServer.on('close', () => {
+    console.log("sever closed")
+})
+
+function getUID({ req, auth = 'mx' }) {
+    const { MXTOKEN } = req.headers?.cookie || {};
+    //const MXTOKEN = "sS8O3gzqXfU/erD+/miNBvU/dBQANIMDXO93Kw94NUpfyZ5Al1J1lH+YTVpLkF9U"
+    if (!MXTOKEN) console.error("error getting token")
+    const { user_id } = userFromToken({ token: MXTOKEN })
+    return user_id
+}
+// 处理升级请求，同时考虑CORS
+app.server.on('upgrade', (req, socket, head) => {
+    // 这里可以检查request.headers.origin，并决定是否接受连接
+    //const origin = request.headers.origin;
+    console.log(req.url)
+    const url = new URL(req.url, `http://${req.headers.host}`)
+    const params = url.searchParams
+    const auth = params.get('auth')
+    const uid = getUID({ req, auth });
+    if (!uid) {
+        socket.write(JSON.stringify({ code: 100, msg: 'No Access' }));
+        socket.destroy();
+        return;
+    }
+    wsServer.handleUpgrade(req, socket, head, ws => {
+        ws.uid = uid
+        wsServer.emit('connection', ws, req);
+        clients[uid] = ws
+    });
+});
 
 async function startServer() {
+    await app.register(cors, { origin: true, credentials: true, allowedHeaders: ['content-type'] });
+
     const port = process.env.port || 8080
     await app.listen({ port, host: '0.0.0.0' });
     console.log("Starting mxpush service on:", port)
+
+
 }
 function decrypt({ data, password, from_encoding = 'hex', to_encoding = 'utf8', length = 256 }) {
     try {
@@ -26,7 +77,6 @@ function decrypt({ data, password, from_encoding = 'hex', to_encoding = 'utf8', 
     } catch (e) {
         return null
     }
-
 }
 function userFromToken({ token }) {
     try {
@@ -40,8 +90,6 @@ function userFromToken({ token }) {
 }
 dotenv.config()
 startServer()
-let count = 0
-const clients = {}
 app.get('/', (req, res) => {
     return "ok"
 })
@@ -51,42 +99,25 @@ app.get('/mxpush/url', async (req, res) => {
 app.get('/mxpush/status', async (req, res) => {
     return { count }
 })
-app.get('/mxpush/connect', async (req, res) => {
-    const { token, type = 'mx' } = req.query
-    const { user_id } = userFromToken({ token })
-    if (!user_id) return { code: 100, msg: 'invalid user' }
-    if (clients[user_id]) return { code: 101, msg: 'already connected' }
 
-    console.log(`[${user_id}]`, "connected. total = ", ++count)
-    const eventName = process.env.eventName || 'mxpush'
-    const session = await createSession(req.raw, res.raw, { headers: { "Access-Control-Allow-Origin": '*' } })
-    clients[user_id] = session
-    session.on("disconnected", () => {
-        console.log(`[${user_id}]`, "disconnected. total = ", --count)
-        delete clients[user_id]
-    })
-    session.push('connected', eventName)
-})
 app.post('/mxpush/post', async (req, res) => {
     const { items, key } = req.body
     const eventName = process.env.eventName || 'mxpush'
-    let delivered = 0
+    let delivered = 0, undelivered = ""
     if (config.apiKeys.indexOf(key) === -1) return { code: 101, msg: 'invalid call' }
     for (const item of items) {
-        const { uid } = item
+        const { uid, type, data } = item
         if (!uid) return { code: 100, msg: 'uid is missing' }
         const uids = uid.split(',')
-        let undeliverd = ""
         uids.forEach(id => {
-            const session = clients[id]
-            if (session) {
-                session.push(item.data, eventName)
-                console.log('push to:', id, ' data:', item.data)
+            const socket = clients[id]
+            if (socket) {
+                socket.send(data)
                 delivered++
             } else {
-                undeliverd += id + ','
+                undelivered += id + ','
             }
         })
     }
-    return { code: 0, delivered, undeliverd }
+    return { code: 0, delivered, undelivered }
 })
