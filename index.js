@@ -31,6 +31,7 @@ wsServer.on('close', () => {
 
 function getUID({ req, auth = 'mx' }) {
     const { MXTOKEN } = req.headers?.cookie || {};
+    console.log(req.headers.cookie)
     //const MXTOKEN = "sS8O3gzqXfU/erD+/miNBvU/dBQANIMDXO93Kw94NUpfyZ5Al1J1lH+YTVpLkF9U"
     if (!MXTOKEN) console.error("error getting token")
     const { user_id } = userFromToken({ token: MXTOKEN })
