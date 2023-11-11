@@ -34,14 +34,15 @@ wss.on('connection', (socket, req) => {
 const interval = setInterval(() => {
     try {
         console.log('clients:', wss.clients.size)
-        wss.clients.forEach(socket => {
+        for (socket of wss.clients) {
             if (!socket.isAlive) {
                 console.log("unreponse socket detected. terminate.")
-                return socket.terminate();
+                socket.terminate();
+                continue
             }
             socket.isAlive = false;
             socket.ping();
-        });
+        }
     } catch (e) {
         console.error(e.message)
     }
