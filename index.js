@@ -32,12 +32,20 @@ wss.on('connection', (socket, req) => {
 });
 // 检测并关闭失去响应的连接
 const interval = setInterval(() => {
-    console.log('clients:', wss.clients.size)
-    wss.clients.forEach(socket => {
-        if (!socket.isAlive) return socket.terminate();
-        socket.isAlive = false;
-        socket.ping();
-    });
+    try {
+        console.log('clients:', wss.clients.size)
+        wss.clients.forEach(socket => {
+            if (!socket.isAlive) {
+                console.log("unreponse socket detected. terminate.")
+                return socket.terminate();
+            }
+            socket.isAlive = false;
+            socket.ping();
+        });
+    } catch (e) {
+        console.error(e.message)
+    }
+
 }, 10000);
 
 wss.on('close', () => {
