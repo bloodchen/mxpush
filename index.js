@@ -2,7 +2,7 @@ import fastifyModule from 'fastify';
 import cors from '@fastify/cors'
 import crypto from 'crypto';
 import dotenv from "dotenv";
-import { WebSocketServer } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 
 import { config } from './config.js'
 
@@ -11,22 +11,38 @@ const clients = {}
 let count = 0
 
 const app = fastifyModule({ logger: false });
-const wsServer = new WebSocketServer({ noServer: true });
+const wss = new WebSocketServer({ noServer: true });
 
-wsServer.on('connection', (socket, req) => {
+wss.on('connection', (socket, req) => {
     const ip = req.socket.remoteAddress;
     console.log(socket.uid, ' connected. count:', ++count)
-
+    socket.isAlive = true;
+    socket.on('pong', data => {
+        socket.isAlive = true;
+        console.log('Received pong:', data.toString());
+    });
     socket.on('message', message => {
         console.log(`Received message: ${message}`);
         socket.send(`Hello, you sent -> ${message}`);
     });
     socket.on("close", (reason) => {
         console.log(socket.uid, ': disconnected', 'reason:', reason, ' count:', --count)
+        clearInterval(interval);
     })
 });
-wsServer.on('close', () => {
+// 检测并关闭失去响应的连接
+const interval = setInterval(() => {
+    console.log('clients:', wss.clients.size)
+    wss.clients.forEach(socket => {
+        if (!socket.isAlive) return socket.terminate();
+        socket.isAlive = false;
+        socket.ping();
+    });
+}, 10000);
+
+wss.on('close', () => {
     console.log("sever closed")
+    clearInterval(interval);
 })
 
 function authenticate({ req, token, auth = 'mx' }) {
@@ -49,9 +65,9 @@ app.server.on('upgrade', (req, socket, head) => {
         socket.destroy();
         return;
     }
-    wsServer.handleUpgrade(req, socket, head, ws => {
+    wss.handleUpgrade(req, socket, head, ws => {
         ws.uid = uid
-        wsServer.emit('connection', ws, req);
+        wss.emit('connection', ws, req);
         clients[uid] = ws
     });
 });
