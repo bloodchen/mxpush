@@ -27,7 +27,6 @@ wss.on('connection', (socket, req) => {
     });
     socket.on("close", (reason) => {
         console.log(socket.uid, ': disconnected', 'reason:', reason, ' count:', --count)
-        clearInterval(interval);
     })
 });
 // 检测并关闭失去响应的连接
