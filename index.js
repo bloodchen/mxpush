@@ -7,45 +7,51 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { config } from './config.js'
 
 const tokenPass = "2rnma5xsctJhx1Z$#%^09FYkRfuAsxTB"
-const clients = {}
 let count = 0
 
 const app = fastifyModule({ logger: false });
 const wss = new WebSocketServer({ noServer: true });
 
+function setPingCheck(socket) {
+    socket.isAlive = true
+    const now = Math.floor(Date.now() / 1000)
+    socket.pingCheck = now + 20
+}
 wss.on('connection', (socket, req) => {
     const ip = req.socket.remoteAddress;
-    console.log(socket.uid, ' connected. count:', ++count)
-    socket.isAlive = true;
+    console.log(socket.uid, ' connected. count:', wss.clients.size)
+    setPingCheck(socket)
     socket.on('pong', data => {
-        socket.isAlive = true;
-        console.log('Received pong:', data.toString());
+        setPingCheck(socket)
+        //console.log('Received pong:', data.toString());
     });
     socket.on('message', message => {
+        setPingCheck(socket)
         console.log(`Received message: ${message}`);
-        socket.send(`Hello, you sent -> ${message}`);
     });
     socket.on("close", (reason) => {
-        console.log(socket.uid, ': disconnected', 'reason:', reason, ' count:', --count)
+        console.log(socket.uid, ': disconnected', 'reason:', reason, ' count:', wss.clients.size)
     })
 });
 // 检测并关闭失去响应的连接
 const interval = setInterval(() => {
     try {
+        const now = Math.floor(Date.now() / 1000)
         console.log('clients:', wss.clients.size)
         for (const socket of wss.clients) {
+            console.log(socket.uid)
             if (!socket.isAlive) {
                 console.log("unreponse socket detected. terminate.")
                 socket.terminate();
                 continue
             }
+            if (socket.pingCheck > now) continue; //no need to check yet
             socket.isAlive = false;
             socket.ping();
         }
     } catch (e) {
         console.error(e.message)
     }
-
 }, 10000);
 
 wss.on('close', () => {
@@ -53,6 +59,12 @@ wss.on('close', () => {
     clearInterval(interval);
 })
 
+function findClient(uid) {
+    for (const ws of wss.clients) {
+        if (ws.uid === uid) return ws
+    }
+    return null
+}
 function authenticate({ req, token, auth = 'mx' }) {
     const { user_id } = userFromToken({ token })
     return !!user_id
@@ -76,7 +88,7 @@ app.server.on('upgrade', (req, socket, head) => {
     wss.handleUpgrade(req, socket, head, ws => {
         ws.uid = uid
         wss.emit('connection', ws, req);
-        clients[uid] = ws
+        //clients[uid] = ws
     });
 });
 
@@ -138,7 +150,7 @@ app.post('/mxpush/post', async (req, res) => {
         if (!uid) return { code: 100, msg: 'uid is missing' }
         const uids = uid.split(',')
         uids.forEach(id => {
-            const socket = clients[id]
+            const socket = findClient(id)
             if (socket) {
                 socket.send(data)
                 delivered++

@@ -20,6 +20,7 @@
         <![endif]-->
 
     <script type="module">
+        import reconnectingWebsocket from 'https://cdn.jsdelivr.net/npm/reconnecting-websocket@4.4.0/+esm'
         function getCookie(name) {
             var nameEQ = name + '=';
             var ca = document.cookie.split(';');
@@ -31,8 +32,8 @@
             return null;
         }
         const token = encodeURIComponent("sS8O3gzqXfU/erD+/miNBvU/dBQANIMDXO93Kw94NUpfyZ5Al1J1lH+YTVpLkF9U")//getCookie('MXTOKEN')
-        //const socket = new WebSocket('ws://localhost:8080?uid=208&token=' + token);
-        const socket = new WebSocket('wss://mxpush.mxfast.com/?uid=208&token=' + token);
+        const socket = new reconnectingWebsocket('ws://localhost:8080?uid=208&token=' + token);
+        //const socket = new reconnectingWebsocket('wss://mxpush.mxfast.com/?uid=208&token=' + token);
 
         // 连接打开时的事件处理
         socket.onopen = function (event) {
