@@ -1,10 +1,12 @@
 import fastifyModule from 'fastify';
 import cors from '@fastify/cors'
 import crypto from 'crypto';
+import { nanoid } from 'nanoid'
 import dotenv from "dotenv";
 import { WebSocketServer, WebSocket } from 'ws';
 
 import { config } from './config.js'
+
 
 const tokenPass = "2rnma5xsctJhx1Z$#%^09FYkRfuAsxTB"
 let count = 0
@@ -59,7 +61,7 @@ wss.on('close', () => {
     clearInterval(interval);
 })
 
-function findClient(uid) {
+function findSocket(uid) {
     for (const ws of wss.clients) {
         if (ws.uid === uid) return ws
     }
@@ -143,21 +145,47 @@ app.get('/mxpush/status', async (req, res) => {
 app.post('/mxpush/post', async (req, res) => {
     const { items, key } = req.body
     const eventName = process.env.eventName || 'mxpush'
-    let delivered = 0, undelivered = ""
+    let delivered = 0, undelivered = "", ret = {}
     if (config.apiKeys.indexOf(key) === -1) return { code: 101, msg: 'invalid call' }
     for (const item of items) {
-        const { uid, type, data } = item
+        const { uid, r, data } = item
         if (!uid) return { code: 100, msg: 'uid is missing' }
         const uids = uid.split(',')
-        uids.forEach(id => {
-            const socket = findClient(id)
+        for (const id of uids) {
+            const socket = findSocket(id)
             if (socket) {
-                socket.send(data)
-                delivered++
+                if (r) {
+                    const reply = await getReply(socket, data)
+                    ret[id] = ret.code === 100 ? ret : { code: 0, reply }
+                } else {
+                    socket.send(data)
+                    ret[id] = { code: 0, msg: "data sent" }
+                    delivered++
+                }
             } else {
-                undelivered += id + ','
+                ret[id] = { code: 101, msg: "socket broken" }
             }
-        })
+        }
     }
-    return { code: 0, delivered, undelivered }
+    return { code: 0, delivered, undelivered, ret }
 })
+async function getReply(socket, data, timeout = 50000) {
+    return new Promise(resolve => {
+        const id = nanoid()
+        socket.send(JSON.stringify({ r: true, id, data }))
+        const handler = (message) => {
+            setPingCheck(socket)
+            const data = JSON.parse(message)
+            const { rr } = data
+            if (rr && data.id === id) {
+                resolve(data)
+                socket.off('message', handler)
+            }
+        }
+        socket.on('message', handler)
+        setTimeout(() => {
+            socket.off('message', handler)
+            resolve({ code: 100, msg: "timeout" })
+        }, timeout)
+    })
+}

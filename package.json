@@ -17,8 +17,8 @@
     "fastify": "^4.24.3",
     "fastify-socket.io": "^5.0.0",
     "msgpackr": "^1.9.9",
+    "nanoid": "^5.0.3",
     "partysocket": "^0.0.14",
-    "socket.io": "^4.7.2",
     "ws": "^8.14.2"
   }
 }
