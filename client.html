@@ -21,6 +21,8 @@
 
     <script type="module">
         import reconnectingWebsocket from 'https://cdn.jsdelivr.net/npm/reconnecting-websocket@4.4.0/+esm'
+        import Peer from "https://cdn.jsdelivr.net/npm/simple-peer-light@9.10.0/index.min.js"
+        let this_peer = null
         function getCookie(name) {
             var nameEQ = name + '=';
             var ca = document.cookie.split(';');
@@ -31,9 +33,19 @@
             }
             return null;
         }
+        function init() {
+            this_peer = new Peer({ initiator: false, trickle: false });
+            this_peer.on('connect', () => {
+                console.log('CONNECT');
+            });
+            this_peer.on('data', data => {
+                console.log('data: ' + data);
+            });
+        }
         const token = encodeURIComponent("sS8O3gzqXfU/erD+/miNBvU/dBQANIMDXO93Kw94NUpfyZ5Al1J1lH+YTVpLkF9U")//getCookie('MXTOKEN')
-        const socket = new reconnectingWebsocket('ws://localhost:8080?uid=208&token=' + token, [], { maxReconnectionDelay: 20000, maxRetries: 5 });
-        //const socket = new reconnectingWebsocket('wss://mxpush.mxfast.com/?uid=208&token=' + token);
+        //const socket = new reconnectingWebsocket('ws://localhost:8080?uid=208&token=' + token, [], { maxReconnectionDelay: 20000, maxRetries: 100 });
+        const device = "0843869e113ff443cac1d2e6fb430f1a2774000033b5860aa259d932c4f91dab37cfc147"
+        const socket = new reconnectingWebsocket(`wss://mxpush.mxfast.com/?uid=208_${device}&token=${token}`, [], { maxReconnectionDelay: 20000, maxRetries: 100 });
         function parseJson(str) {
             try {
                 return JSON.parse(str)
@@ -52,9 +64,18 @@
             console.log('Message received:', event.data);
             const item = parseJson(event.data)
             if (item) {
-                const { r, id } = item
+                const { r, id, data } = item
                 if (r) {
-                    socket.send(JSON.stringify({ rr: true, id, data: "123" }))
+                    const { cmd, signal } = data
+                    if (cmd === 'mxpeer_connect') {
+                        console.log("got signal:", signal)
+                        this_peer.on('signal', data => {
+                            console.log('SIGNAL', JSON.stringify(data));
+                            socket.send(JSON.stringify({ rr: true, id, data }))
+                        });
+                        this_peer.signal(signal)
+                    } else
+                        socket.send(JSON.stringify({ rr: true, id, data: "123" }))
                 }
             }
         };
@@ -65,6 +86,7 @@
         socket.onerror = (error) => {
             console.log('WebSocket error:', error);
         };
+        init()
     </script>
 </body>
 
