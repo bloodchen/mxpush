@@ -98,8 +98,8 @@ async function startServer() {
     await app.register(cors, { origin: true, credentials: true, allowedHeaders: ['content-type'] });
     app.addHook("preHandler", async (req, res) => {
         console.log(req.url)
-        if (req.url.indexOf('/socket.io/') != -1) {
-            res.code(404).send("ok")
+        if (req.url.indexOf('/mxpush/connect') != -1) {
+            res.code(404).send("404")
             return
         }
     })
