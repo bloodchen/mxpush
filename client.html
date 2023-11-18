@@ -64,18 +64,17 @@
             console.log('Message received:', event.data);
             const item = parseJson(event.data)
             if (item) {
-                const { r, id, data } = item
-                if (r) {
-                    const { cmd, signal } = data
+                const { _r, _id, cmd, data } = item
+                if (_r) {
                     if (cmd === 'mxpeer_connect') {
-                        console.log("got signal:", signal)
+                        console.log("got signal:", data)
                         this_peer.on('signal', data => {
                             console.log('SIGNAL', JSON.stringify(data));
-                            socket.send(JSON.stringify({ rr: true, id, data }))
+                            socket.send(JSON.stringify({ _rr: true, _id, data }))
                         });
-                        this_peer.signal(signal)
+                        this_peer.signal(data)
                     } else
-                        socket.send(JSON.stringify({ rr: true, id, data: "123" }))
+                        socket.send(JSON.stringify({ _rr: true, _id, data: "123" }))
                 }
             }
         };

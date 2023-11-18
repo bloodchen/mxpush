@@ -158,7 +158,7 @@ app.post('/mxpush/post', async (req, res) => {
                     const reply = await getReply(socket, data)
                     ret[id] = ret.code === 100 ? ret : { code: 0, reply }
                 } else {
-                    socket.send(data)
+                    socket.send(JSON.stringify(data))
                     ret[id] = { code: 0, msg: "data sent" }
                     delivered++
                 }
@@ -171,13 +171,13 @@ app.post('/mxpush/post', async (req, res) => {
 })
 async function getReply(socket, data, timeout = 50000) {
     return new Promise(resolve => {
-        const id = nanoid()
-        socket.send(JSON.stringify({ r: true, id, data }))
+        const _id = nanoid()
+        socket.send(JSON.stringify({ _r: true, _id, ...data }))
         const handler = (message) => {
             setPingCheck(socket)
             const data = JSON.parse(message)
-            const { rr } = data
-            if (rr && data.id === id) {
+            const { _rr } = data
+            if (_rr && data._id === _id) {
                 resolve(data)
                 socket.off('message', handler)
             }
