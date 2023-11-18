@@ -148,17 +148,18 @@ app.post('/mxpush/post', async (req, res) => {
     let delivered = 0, undelivered = "", ret = {}
     if (config.apiKeys.indexOf(key) === -1) return { code: 101, msg: 'invalid call' }
     for (const item of items) {
-        const { uid, r, data } = item
+        const { uid, _r, data } = item
         if (!uid) return { code: 100, msg: 'uid is missing' }
         const uids = uid.split(',')
         for (const id of uids) {
             const socket = findSocket(id)
             if (socket) {
-                if (r) {
+                if (_r) {
                     const reply = await getReply(socket, data)
                     ret[id] = ret.code === 100 ? ret : { code: 0, reply }
                 } else {
-                    socket.send(JSON.stringify(data))
+                    delete item.uid
+                    socket.send(JSON.stringify(item))
                     ret[id] = { code: 0, msg: "data sent" }
                     delivered++
                 }
