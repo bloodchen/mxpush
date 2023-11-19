@@ -48,7 +48,7 @@ const interval = setInterval(() => {
         const now = Math.floor(Date.now() / 1000)
         console.log('clients:', wss.clients.size)
         for (const socket of wss.clients) {
-            //console.log(socket.uid)
+            console.log('checking', socket.uid)
             if (!socket.isAlive) {
                 console.log("unreponse socket detected. terminate:", socket.uid)
                 socket.terminate();
