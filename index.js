@@ -74,8 +74,8 @@ function findSocket(uid) {
     }
     return null
 }
-function authenticateFromUrl(url) {
-    const url = new URL(url, `http://${req.headers.host}`)
+function authenticateFromUrl(u) {
+    const url = new URL(u, `http://${req.headers.host}`)
     const params = url.searchParams
     const auth = params.get('auth')
     const token = params.get('token')
