@@ -85,12 +85,12 @@ function authenticateFromUrl(u, def) {
     console.log(uid, token, auth)
     if (!uid || !token) return null
     const { user_id } = userFromToken({ token })
+    if (!user_id) return null
     if (auth === 'mx') {
         const mxid = uid.split('_')[0]
         console.log(mxid, user_id)
-        if (mxid !== user_id) return null
+        if (mxid != user_id) return null
     }
-    if (!user_id) return null
     return uid
 }
 // 处理升级请求，同时考虑CORS
