@@ -14,7 +14,7 @@ let count = 0
 const app = fastifyModule({ logger: false });
 const wss = new WebSocketServer({ noServer: true });
 
-function setPingCheck(socket) {
+function setAlive(socket) {
     socket.isAlive = true
     const now = Math.floor(Date.now() / 1000)
     socket.pingCheck = now + 20
@@ -29,13 +29,13 @@ wss.on('connection', (socket, req) => {
     socket.uid = uid
 
     console.log(socket.uid, ' connected. count:', wss.clients.size)
-    setPingCheck(socket)
+    setAlive(socket)
     socket.on('pong', data => {
-        setPingCheck(socket)
+        setAlive(socket)
         //console.log('Received pong:', data.toString());
     });
     socket.on('message', message => {
-        setPingCheck(socket)
+        setAlive(socket)
         console.log(`Received message: ${message}`);
     });
     socket.on("close", (reason) => {
@@ -48,7 +48,7 @@ const interval = setInterval(() => {
         const now = Math.floor(Date.now() / 1000)
         console.log('clients:', wss.clients.size)
         for (const socket of wss.clients) {
-            console.log('checking', socket.uid)
+            if (!socket.uid) continue
             if (!socket.isAlive) {
                 console.log("unreponse socket detected. terminate:", socket.uid)
                 socket.terminate();
@@ -94,10 +94,9 @@ function authenticateFromUrl(u, def) {
 app.server.on('upgrade', (req, socket, head) => {
     // 这里可以检查request.headers.origin，并决定是否接受连接
     //const origin = request.headers.origin;
-
+    setAlive(socket)
     wss.handleUpgrade(req, socket, head, ws => {
         wss.emit('connection', ws, req);
-        //clients[uid] = ws
     });
 });
 
@@ -196,7 +195,7 @@ async function getReply(socket, data, timeout = 50000) {
         const _id = nanoid()
         socket.send(JSON.stringify({ _r: true, _id, ...data }))
         const handler = (message) => {
-            setPingCheck(socket)
+            setAlive(socket)
             const data = JSON.parse(message)
             const { _rr } = data
             if (_rr && data._id === _id) {
