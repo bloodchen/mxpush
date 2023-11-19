@@ -87,6 +87,7 @@ function authenticateFromUrl(u, def) {
     const { user_id } = userFromToken({ token })
     if (auth === 'mx') {
         const mxid = uid.split('_')[0]
+        console.log(mxid, user_id)
         if (mxid !== user_id) return null
     }
     if (!user_id) return null
