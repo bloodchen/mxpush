@@ -23,6 +23,7 @@ wss.on('connection', (socket, req) => {
     const ip = req.socket.remoteAddress;
     const uid = authenticateFromUrl(req.url, `http://${req.headers.host}`)
     if (!uid) {
+        console.error("invalid user, close")
         socket.close(4001, "No Access")
         return
     }
@@ -77,11 +78,15 @@ function findSocket(uid) {
 function authenticateFromUrl(u, def) {
     const url = new URL(u, def)
     const params = url.searchParams
-    const auth = params.get('auth')
+    const auth = params.get('auth') || 'mx'
     const token = params.get('token')
     const uid = params.get('uid')
     if (!uid || !token) return null
     const { user_id } = userFromToken({ token })
+    if (type === 'mx') {
+        const mxid = uid.split('_')[0]
+        if (mxid !== user_id) return null
+    }
     if (!user_id) return null
     return uid
 }
