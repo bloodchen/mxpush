@@ -83,7 +83,7 @@ function authenticateFromUrl(u, def) {
     const uid = params.get('uid')
     if (!uid || !token) return null
     const { user_id } = userFromToken({ token })
-    if (type === 'mx') {
+    if (auth === 'mx') {
         const mxid = uid.split('_')[0]
         if (mxid !== user_id) return null
     }
