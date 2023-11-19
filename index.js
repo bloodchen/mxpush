@@ -84,7 +84,8 @@ app.server.on('upgrade', (req, socket, head) => {
     const isAuth = authenticate({ req, token, auth });
     if (!isAuth || !uid) {
         socket.write(JSON.stringify({ code: 100, msg: 'No Access' }));
-        socket.destroy();
+        //socket.destroy();
+        socket.closed(3003, 'No Access')
         return;
     }
     wss.handleUpgrade(req, socket, head, ws => {
