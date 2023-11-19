@@ -91,7 +91,6 @@ app.server.on('upgrade', (req, socket, head) => {
     //const origin = request.headers.origin;
 
     wss.handleUpgrade(req, socket, head, ws => {
-        ws.uid = uid
         wss.emit('connection', ws, req);
         //clients[uid] = ws
     });
