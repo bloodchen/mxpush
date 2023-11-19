@@ -21,7 +21,7 @@ function setPingCheck(socket) {
 }
 wss.on('connection', (socket, req) => {
     const ip = req.socket.remoteAddress;
-    const uid = authenticateFromUrl(req.url)
+    const uid = authenticateFromUrl(req.url, `http://${req.headers.host}`)
     if (!uid) {
         socket.close(4001, "No Access")
         return
@@ -74,8 +74,8 @@ function findSocket(uid) {
     }
     return null
 }
-function authenticateFromUrl(u) {
-    const url = new URL(u, `http://${req.headers.host}`)
+function authenticateFromUrl(u, def) {
+    const url = new URL(u, def)
     const params = url.searchParams
     const auth = params.get('auth')
     const token = params.get('token')
