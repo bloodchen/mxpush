@@ -76,11 +76,13 @@ function findSocket(uid) {
     return null
 }
 function authenticateFromUrl(u, def) {
+    console.log('checking:', u)
     const url = new URL(u, def)
     const params = url.searchParams
     const auth = params.get('auth') || 'mx'
     const token = params.get('token')
     const uid = params.get('uid')
+    console.log(uid, token, auth)
     if (!uid || !token) return null
     const { user_id } = userFromToken({ token })
     if (auth === 'mx') {
