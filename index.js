@@ -21,6 +21,13 @@ function setPingCheck(socket) {
 }
 wss.on('connection', (socket, req) => {
     const ip = req.socket.remoteAddress;
+    const uid = authenticateFromUrl(req.url)
+    if (!uid) {
+        socket.close(4001, "No Access")
+        return
+    }
+    socket.uid = uid
+
     console.log(socket.uid, ' connected. count:', wss.clients.size)
     setPingCheck(socket)
     socket.on('pong', data => {
@@ -67,27 +74,22 @@ function findSocket(uid) {
     }
     return null
 }
-function authenticate({ req, token, auth = 'mx' }) {
+function authenticateFromUrl(url) {
+    const url = new URL(url, `http://${req.headers.host}`)
+    const params = url.searchParams
+    const auth = params.get('auth')
+    const token = params.get('token')
+    const uid = params.get('uid')
+    if (!uid || !token) return null
     const { user_id } = userFromToken({ token })
-    return !!user_id
+    if (!user_id) return null
+    return uid
 }
 // 处理升级请求，同时考虑CORS
 app.server.on('upgrade', (req, socket, head) => {
     // 这里可以检查request.headers.origin，并决定是否接受连接
     //const origin = request.headers.origin;
-    console.log(req.url)
-    const url = new URL(req.url, `http://${req.headers.host}`)
-    const params = url.searchParams
-    const auth = params.get('auth')
-    const token = params.get('token')
-    const uid = params.get('uid')
-    const isAuth = authenticate({ req, token, auth });
-    if (!isAuth || !uid) {
-        socket.write(JSON.stringify({ code: 100, msg: 'No Access' }));
-        //socket.destroy();
-        socket.closed(3003, 'No Access')
-        return;
-    }
+
     wss.handleUpgrade(req, socket, head, ws => {
         ws.uid = uid
         wss.emit('connection', ws, req);
