@@ -23,7 +23,6 @@ wss.on('connection', (socket, req) => {
     const ip = req.socket.remoteAddress;
     const uid = authenticateFromUrl(req.url, `http://${req.headers.host}`)
     if (!uid) {
-        console.error("invalid user, close")
         socket.close(4001, "No Access")
         return
     }
@@ -86,7 +85,6 @@ function authenticateFromUrl(u, def) {
     if (!user_id) return null
     if (auth === 'mx') {
         const mxid = uid.split('_')[0]
-        console.log(mxid, user_id)
         if (mxid != user_id) return null
     }
     console.log("auth passed:", uid)
