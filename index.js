@@ -76,13 +76,11 @@ function findSocket(uid) {
     return null
 }
 function authenticateFromUrl(u, def) {
-    console.log('checking:', u)
     const url = new URL(u, def)
     const params = url.searchParams
     const auth = params.get('auth') || 'mx'
     const token = params.get('token')
     const uid = params.get('uid')
-    console.log(uid, token, auth)
     if (!uid || !token) return null
     const { user_id } = userFromToken({ token })
     if (!user_id) return null
@@ -91,6 +89,7 @@ function authenticateFromUrl(u, def) {
         console.log(mxid, user_id)
         if (mxid != user_id) return null
     }
+    console.log("auth passed:", uid)
     return uid
 }
 // 处理升级请求，同时考虑CORS
