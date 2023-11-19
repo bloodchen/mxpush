@@ -149,7 +149,7 @@ app.get('/mxpush/status', async (req, res) => {
     for (const ws of wss.clients) {
         arr.push(ws.uid)
     }
-    return { count, arr }
+    return { count: arr.length, arr }
 })
 app.post('/mxpush/isonline', async (req, res) => {
     const { uids } = req.body
