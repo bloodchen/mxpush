@@ -41,7 +41,7 @@ const interval = setInterval(() => {
         const now = Math.floor(Date.now() / 1000)
         console.log('clients:', wss.clients.size)
         for (const socket of wss.clients) {
-            console.log(socket.uid)
+            //console.log(socket.uid)
             if (!socket.isAlive) {
                 console.log("unreponse socket detected. terminate.")
                 socket.terminate();
@@ -141,7 +141,17 @@ app.get('/mxpush/url', async (req, res) => {
 app.get('/mxpush/status', async (req, res) => {
     return { count }
 })
-
+app.post('/mxpush/isonline', async (req, res) => {
+    const { uids } = req.body
+    const result = []
+    const arr = uids.split(',')
+    for (const uid of arr) {
+        if (findSocket(uid)) {
+            result.push(uid)
+        }
+    }
+    return { code: 0, result }
+})
 app.post('/mxpush/post', async (req, res) => {
     const { items, key } = req.body
     const eventName = process.env.eventName || 'mxpush'
