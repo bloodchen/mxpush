@@ -167,6 +167,7 @@ app.post('/mxpush/post', async (req, res) => {
     const eventName = process.env.eventName || 'mxpush'
     let delivered = 0, undelivered = "", ret = {}
     if (config.apiKeys.indexOf(key) === -1) return { code: 101, msg: 'invalid call' }
+    console.log("got msg:", items)
     for (const item of items) {
         const { uid, _r, data } = item
         if (!uid) return { code: 100, msg: 'uid is missing' }
