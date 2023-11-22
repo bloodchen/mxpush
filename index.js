@@ -87,7 +87,7 @@ function authenticateFromUrl(u, def) {
         const mxid = uid.split('_')[0]
         if (mxid != user_id) return null
     }
-    console.log("auth passed:", uid)
+    //console.log("auth passed:", uid)
     return uid
 }
 // 处理升级请求，同时考虑CORS
