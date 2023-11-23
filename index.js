@@ -123,16 +123,24 @@ function decrypt({ data, password, from_encoding = 'hex', to_encoding = 'utf8', 
         return decrypted.toString(to_encoding);
     } catch (e) {
         return null
-    }
+    } //NVQ6wXHqwMUdJM1mIbt4U1gdPyZKujk3t9%2FAxluCYpIs3qqbYrLIx4ECWp%2BhI%2FEl
+    //NVQ6wXHqwMUdJM1mIbt4U1gdPyZKujk3t9%2FAxluCYpIs3qqbYrLIx4ECWp%2BhI%2FEl
+    //Ce78jYANZG29RbuEH0GZu8PE+OTHTqUlHdu8hrfoMyTkd87tnfN77Y743oZBLQ4z
+
 }
 function userFromToken({ token }) {
     try {
-        const data = decrypt({ data: token, password: tokenPass, from_encoding: "base64" })
+        let data = null
+        if (token.slice(0, 2) === '2-') { //v2 token
+            data = decrypt({ data: token.slice(2), password: tokenPass, from_encoding: "hex" })
+        } else
+            data = decrypt({ data: token, password: tokenPass, from_encoding: "base64" })
         const user = JSON.parse(data)
         return user || {}
     } catch (e) {
         console.error(e.message)
     }
+    return {}
     return {}
 }
 dotenv.config()
@@ -140,6 +148,10 @@ startServer()
 app.get('/', (req, res) => {
     console.log(req.url)
     return "ok"
+})
+app.get('/test', async (req, res) => {
+    const url = "https://push.mxfast.com/?uid=55505353_3bb7c8ca69a7ebc83db662dba0c97e4f75940000&token=NVQ6wXHqwMUdJM1mIbt4U1gdPyZKujk3t9%252FAxluCYpIs3qqbYrLIx4ECWp%252BhI%252FEl"
+    return authenticateFromUrl(url)
 })
 app.get('/mxpush/url', async (req, res) => {
     return { url: 'this' }
