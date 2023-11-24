@@ -80,6 +80,10 @@ function authenticateFromUrl(u, def) {
     const auth = params.get('auth') || 'mx'
     const token = params.get('token')
     const uid = params.get('uid')
+    const mxid = uid.split('-')[0]
+    if (['208'].includes(mxid)) {
+        console.log('authenticate:', u)
+    }
     if (!uid || !token) return null
     const { user_id } = userFromToken({ token })
     if (!user_id) return null
