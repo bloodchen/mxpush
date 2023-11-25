@@ -80,7 +80,7 @@ function authenticateFromUrl(u, def) {
     const auth = params.get('auth') || 'mx'
     const token = params.get('token')
     const uid = params.get('uid')
-    const mxid = uid.split('-')[0]
+    const mxid = uid.split('_')[0]
     if (['208'].includes(mxid)) {
         console.log('authenticate:', u)
     }
