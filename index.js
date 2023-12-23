@@ -149,9 +149,22 @@ function userFromToken({ token }) {
 }
 dotenv.config()
 startServer()
+function getClientIp(req) {
+    let IP =
+        //req.ip ||
+        req.headers['CF-Connecting-IP'] ||
+        req.headers["x-forwarded-for"] ||
+        req.socket.remoteAddress ||
+        req.connection.remoteAddress ||
+        req.connection.socket.remoteAddress;
+    IP = IP.split(',')[0]
+    //IP = IP.split(":").pop()
+    return IP;
+}
 app.get('/', (req, res) => {
-    console.log(req.url)
-    return "ok"
+    const ip = getClientIp(req)
+    console.log(ip)
+    return { ip }
 })
 app.get('/test', async (req, res) => {
     const url = "https://push.mxfast.com/?uid=55505353_3bb7c8ca69a7ebc83db662dba0c97e4f75940000&token=NVQ6wXHqwMUdJM1mIbt4U1gdPyZKujk3t9%252FAxluCYpIs3qqbYrLIx4ECWp%252BhI%252FEl"
