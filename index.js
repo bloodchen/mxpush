@@ -158,7 +158,9 @@ function getClientIp(req) {
         req.connection.remoteAddress ||
         req.connection.socket.remoteAddress;
     IP = IP.split(',')[0]
-    //IP = IP.split(":").pop()
+    console.log(JSON.stringify(req.headers))
+    console.log(JSON.stringify(req.connection))
+    console.log(req.socket.remoteAddress)
     return IP;
 }
 app.get('/', (req, res) => {
