@@ -23,7 +23,7 @@ function terminateAllSockets(uid) {
     for (const socket of wss.clients) {
         if (socket.uid === uid) {
             socket.isAlive = false
-            console.log("terminate socket sid:", sid, uid)
+            console.log("terminate socket sid:", socket.sid, uid)
             socket.terminate()
         }
     }
