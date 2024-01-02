@@ -27,8 +27,9 @@ wss.on('connection', (socket, req) => {
         return
     }
     socket.uid = uid
+    socket.sid = nanoid()
 
-    console.log(socket.uid, ' connected. count:', wss.clients.size)
+    console.log(`${socket.sid}[${socket.uid}] connected. count:${wss.clients.size}`)
     setAlive(socket)
     socket.on('pong', data => {
         setAlive(socket)
@@ -203,6 +204,7 @@ app.post('/mxpush/post', async (req, res) => {
         for (const id of uids) {
             const socket = findSocket(id)
             if (socket) {
+                console.log('found socket sid:', socket.sid, 'uid:', socket.uid)
                 if (_r) {
                     const reply = await getReply(socket, data)
                     console.log("msg sent and got reply. id:", id, 'msg:', item, "reply:", reply)
@@ -211,7 +213,7 @@ app.post('/mxpush/post', async (req, res) => {
                 } else {
                     delete item.uid
                     socket.send(JSON.stringify(item))
-                    console.log("msg sent. id:", id, 'msg:', item)
+                    console.log(`msg sent. ${socket.sid}[${socket.uid}] msg:`, item)
                     ret[id] = { code: 0, msg: "data sent" }
                     delivered++
                 }
