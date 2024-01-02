@@ -19,12 +19,12 @@ function setAlive(socket) {
     const now = Math.floor(Date.now() / 1000)
     socket.pingCheck = now + 20
 }
-function terminateAllSockets(uid) {
+function closeAllSockets(uid) {
     for (const socket of wss.clients) {
         if (socket.uid === uid) {
             socket.isAlive = false
-            console.log("terminate socket sid:", socket.sid, uid)
-            socket.terminate()
+            console.log("close socket sid:", socket.sid, uid)
+            socket.close(4001, "terminate")
         }
     }
 }
@@ -35,13 +35,13 @@ wss.on('connection', (socket, req) => {
         socket.close(4001, "No Access")
         return
     }
-    //terminateAllSockets(uid)
+    closeAllSockets(uid)
     socket.uid = uid
     socket.sid = nanoid()
 
     console.log(`${socket.sid}[${socket.uid}] connected. count:${wss.clients.size}`)
     setAlive(socket)
-    socket.send(JSON.stringify({ cmd: 'connected', sid: socket.sid }))
+    //socket.send(JSON.stringify({ cmd: 'connected', sid: socket.sid }))
     socket.on('pong', data => {
         setAlive(socket)
         //console.log('Received pong:', data.toString());
