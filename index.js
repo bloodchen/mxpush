@@ -188,7 +188,7 @@ app.get('/mxpush/info/', async (req, res) => {
     const arr = []
     for (const ws of wss.clients) {
         if (ws.uid.split('_')[0] == uid)
-            arr.push(ws.uid)
+            arr.push(ws.sid + '[' + ws.uid + ']')
     }
     return { count: arr.length, arr }
 })
