@@ -41,6 +41,7 @@ wss.on('connection', (socket, req) => {
 
     console.log(`${socket.sid}[${socket.uid}] connected. count:${wss.clients.size}`)
     setAlive(socket)
+    socket.send(JSON.stringify({ cmd: 'connected', sid: socket.sid }))
     socket.on('pong', data => {
         setAlive(socket)
         //console.log('Received pong:', data.toString());
