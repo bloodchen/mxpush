@@ -183,10 +183,12 @@ app.get('/test', async (req, res) => {
 app.get('/mxpush/url', async (req, res) => {
     return { url: 'this' }
 })
-app.get('/mxpush/status', async (req, res) => {
+app.get('/mxpush/info/', async (req, res) => {
+    const uid = req.query.uid
     const arr = []
     for (const ws of wss.clients) {
-        arr.push(ws.uid)
+        if (ws.uid.split('_')[0] == uid)
+            arr.push(ws.uid)
     }
     return { count: arr.length, arr }
 })
