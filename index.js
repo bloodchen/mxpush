@@ -212,10 +212,12 @@ app.post('/mxpush/post', async (req, res) => {
                 } else {
                     delete item.uid
                     socket.send(JSON.stringify(item))
+                    console.log("msg sent. msg:", item, "id:", id)
                     ret[id] = { code: 0, msg: "data sent" }
                     delivered++
                 }
             } else {
+                console.error("socket not found for:", id)
                 ret[id] = { code: 101, msg: "socket broken" }
             }
         }
