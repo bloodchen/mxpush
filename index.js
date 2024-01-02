@@ -14,34 +14,10 @@ let count = 0
 const app = fastifyModule({ logger: false });
 const wss = new WebSocketServer({ noServer: true });
 
-const clientMap = {}
 function setAlive(socket) {
     socket.isAlive = true
     const now = Math.floor(Date.now() / 1000)
     socket.pingCheck = now + 20
-}
-function addSocket(socket, uid) {
-    clientMap[uid] = socket
-}
-function socketCount() {
-    return Object.keys(clientMap).length
-}
-function findSocket(uid) {
-    return clientMap[uid]
-}
-function removeSocket({ uid, sid }) {
-    if (uid) {
-        delete clientMap[uid]
-        return
-    }
-    if (sid) {
-        for (const key in clientMap) {
-            if (clientMap[key].sid === sid) {
-                delete clientMap[key]
-                return
-            }
-        }
-    }
 }
 wss.on('connection', (socket, req) => {
     const ip = req.socket.remoteAddress;
@@ -51,9 +27,8 @@ wss.on('connection', (socket, req) => {
         return
     }
     socket.uid = uid
-    socket.sid = nanoid()
-    addSocket(socket, uid)
-    console.log(socket.uid, ' connected. count:', socketCount())
+
+    console.log(socket.uid, ' connected. count:', wss.clients.size)
     setAlive(socket)
     socket.on('pong', data => {
         setAlive(socket)
@@ -64,20 +39,18 @@ wss.on('connection', (socket, req) => {
         console.log(`Received message: ${message}`);
     });
     socket.on("close", (reason) => {
-        removeSocket({ sid: socket.sid })
-        console.log(socket.uid, ': disconnected', 'reason:', reason, ' count:', socketCount())
+        console.log(socket.uid, ': disconnected', 'reason:', reason, ' count:', wss.clients.size)
     })
 });
 // 检测并关闭失去响应的连接
 const interval = setInterval(() => {
     try {
         const now = Math.floor(Date.now() / 1000)
-        console.log('clients:', socketCount())
+        console.log('clients:', wss.clients.size)
         for (const socket of wss.clients) {
             if (!socket.uid) continue
             if (!socket.isAlive) {
-                console.log("unreponse socket detected. terminate uid:", socket.uid, 'sid:', socket.sid)
-                removeSocket({ sid: socket.sid })
+                console.log("unreponse socket detected. terminate:", socket.uid)
                 socket.terminate();
                 continue
             }
@@ -95,7 +68,12 @@ wss.on('close', () => {
     clearInterval(interval);
 })
 
-
+function findSocket(uid) {
+    for (const ws of wss.clients) {
+        if (ws.uid === uid && ws.isAlive) return ws
+    }
+    return null
+}
 function authenticateFromUrl(u, def) {
     const url = new URL(u, def)
     const params = url.searchParams
