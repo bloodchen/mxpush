@@ -199,7 +199,7 @@ app.get('/mxpush/terminate/', async (req, res) => {
     const arr = []
     for (const ws of wss.clients) {
         if (ws.sid == sid) {
-            ws.terminate()
+            ws.close(4001, "terminate")
             return { code: 0, msg: "success" }
         }
     }
