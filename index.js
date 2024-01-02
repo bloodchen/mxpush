@@ -60,7 +60,7 @@ wss.on('connection', (socket, req) => {
     })
 });
 // 检测并关闭失去响应的连接
-const interval = setInterval(() => {
+function heartBeat() {
     try {
         const now = Math.floor(Date.now() / 1000)
         console.log('clients:', wss.clients.size)
@@ -86,7 +86,9 @@ const interval = setInterval(() => {
     } catch (e) {
         console.error(e.message)
     }
-}, 10000);
+    setTimeout(heartBeat, 10000)
+}
+const interval = setTimeout(heartBeat, 10000);
 
 wss.on('close', () => {
     console.log("sever closed")
