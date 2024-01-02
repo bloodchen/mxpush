@@ -65,16 +65,17 @@ function heartBeat() {
         const now = Math.floor(Date.now() / 1000)
         console.log('clients:', wss.clients.size)
         for (const socket of wss.clients) {
-            if (!socket.uid) continue
+            const { uid, sid } = socket
+            if (!uid) continue
             if (!socket.isAlive) {
-                console.log("unreponse socket detected. terminate:", socket.uid)
-                if (socket.sid === socketMap[uid].sid) {
+                console.log("unreponse socket detected. terminate:", uid)
+                if (sid === socketMap[uid].sid) {
                     delete socketMap[uid]
                 }
                 socket.terminate();
                 continue
             } else {
-                if (socket.sid !== socketMap[uid].sid) {
+                if (sid !== socketMap[uid].sid) {
                     socket.close(4001, 'close by sever')
                     continue
                 }
