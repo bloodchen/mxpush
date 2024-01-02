@@ -50,6 +50,7 @@ wss.on('connection', (socket, req) => {
         console.log(`Received message: ${message}`);
     });
     socket.on("close", (reason) => {
+        socket.isAlive = false
         console.log(socket.uid, ': disconnected', 'reason:', reason, ' count:', wss.clients.size)
     })
 });
@@ -188,9 +189,20 @@ app.get('/mxpush/info/', async (req, res) => {
     const arr = []
     for (const ws of wss.clients) {
         if (ws.uid.split('_')[0] == uid)
-            arr.push(ws.sid + '[' + ws.uid + ']')
+            arr.push({ sid: ws.sid, uid: ws.uid, isAlive: ws.isAlive })
     }
     return { count: arr.length, arr }
+})
+app.get('/mxpush/terminate/', async (req, res) => {
+    const sid = req.query.sid
+    const arr = []
+    for (const ws of wss.clients) {
+        if (ws.sid == sid) {
+            ws.terminate()
+            return { code: 0, msg: "success" }
+        }
+    }
+    return { code: 0, msg: "not found" }
 })
 app.post('/mxpush/isonline', async (req, res) => {
     const { uids } = req.body
