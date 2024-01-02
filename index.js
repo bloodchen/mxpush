@@ -19,6 +19,7 @@ function setAlive(socket) {
     const now = Math.floor(Date.now() / 1000)
     socket.pingCheck = now + 20
 }
+
 function closeAllSockets(uid) {
     for (const socket of wss.clients) {
         if (socket.uid === uid) {
@@ -28,6 +29,8 @@ function closeAllSockets(uid) {
         }
     }
 }
+const socketMap = {}
+
 wss.on('connection', (socket, req) => {
     const ip = req.socket.remoteAddress;
     const uid = authenticateFromUrl(req.url, `http://${req.headers.host}`)
@@ -35,9 +38,10 @@ wss.on('connection', (socket, req) => {
         socket.close(4001, "No Access")
         return
     }
-    closeAllSockets(uid)
+    //closeAllSockets(uid)
     socket.uid = uid
     socket.sid = nanoid()
+    socketMap[uid] = socket
 
     console.log(`${socket.sid}[${socket.uid}] connected. count:${wss.clients.size}`)
     setAlive(socket)
@@ -64,8 +68,16 @@ const interval = setInterval(() => {
             if (!socket.uid) continue
             if (!socket.isAlive) {
                 console.log("unreponse socket detected. terminate:", socket.uid)
+                if (socket.sid === socketMap[uid].sid) {
+                    delete socketMap[uid]
+                }
                 socket.terminate();
                 continue
+            } else {
+                if (socket.sid !== socketMap[uid].sid) {
+                    socket.close(4001, 'close by sever')
+                    continue
+                }
             }
             if (socket.pingCheck > now) continue; //no need to check yet
             socket.isAlive = false;
