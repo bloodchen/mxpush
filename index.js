@@ -35,7 +35,7 @@ wss.on('connection', (socket, req) => {
         socket.close(4001, "No Access")
         return
     }
-    terminateAllSockets(uid)
+    //terminateAllSockets(uid)
     socket.uid = uid
     socket.sid = nanoid()
 
