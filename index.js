@@ -19,6 +19,15 @@ function setAlive(socket) {
     const now = Math.floor(Date.now() / 1000)
     socket.pingCheck = now + 20
 }
+function terminateAllSockets(uid) {
+    for (const socket of wss.clients) {
+        if (socket.uid === uid) {
+            socket.isAlive = false
+            console.log("terminate socket sid:", sid, uid)
+            socket.terminate()
+        }
+    }
+}
 wss.on('connection', (socket, req) => {
     const ip = req.socket.remoteAddress;
     const uid = authenticateFromUrl(req.url, `http://${req.headers.host}`)
@@ -26,6 +35,7 @@ wss.on('connection', (socket, req) => {
         socket.close(4001, "No Access")
         return
     }
+    terminateAllSockets(uid)
     socket.uid = uid
     socket.sid = nanoid()
 
