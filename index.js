@@ -208,11 +208,13 @@ app.post('/mxpush/post', async (req, res) => {
             if (socket) {
                 if (_r) {
                     const reply = await getReply(socket, data)
+                    console.log("msg sent and got reply. id:", id, 'msg:', item, "reply:", reply)
+
                     ret[id] = ret.code === 100 ? ret : { code: 0, reply }
                 } else {
                     delete item.uid
                     socket.send(JSON.stringify(item))
-                    console.log("msg sent. msg:", item, "id:", id)
+                    console.log("msg sent. id:", id, 'msg:', item)
                     ret[id] = { code: 0, msg: "data sent" }
                     delivered++
                 }
