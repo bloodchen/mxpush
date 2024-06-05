@@ -7,7 +7,6 @@ RUN bun install
 FROM oven/bun:latest
 ENV NODE_ENV production
 WORKDIR /home/node/app/
-RUN chown -R node:node /home/node/app
 COPY  --from=build /tmp/node_modules /home/node/app/node_modules
 COPY  . .
 
