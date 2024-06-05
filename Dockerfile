@@ -8,9 +8,8 @@ FROM oven/bun:latest
 ENV NODE_ENV production
 WORKDIR /home/node/app/
 RUN chown -R node:node /home/node/app
-COPY --chown=node:node --from=build /tmp/node_modules /home/node/app/node_modules
-COPY --chown=node:node . .
-USER node
+COPY  --from=build /tmp/node_modules /home/node/app/node_modules
+COPY  . .
 
 EXPOSE 8080
 
