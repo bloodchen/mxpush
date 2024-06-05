@@ -1,10 +1,10 @@
-FROM jarredsumner/bun:latest AS build
+FROM oven/bun:latest AS build
 WORKDIR /tmp
 ENV NODE_ENV production
 ADD package.json /tmp/package.json
 RUN bun install 
 
-FROM jarredsumner/bun:latest
+FROM oven/bun:latest
 ENV NODE_ENV production
 WORKDIR /home/node/app/
 RUN chown -R node:node /home/node/app
