@@ -1,16 +1,19 @@
-FROM oven/bun:latest AS build
+FROM node:16-alpine AS build
 WORKDIR /tmp
 ENV NODE_ENV production
 ADD package.json /tmp/package.json
-RUN bun install 
+RUN npm install 
 
-FROM oven/bun:latest
+FROM node:16-alpine
 ENV NODE_ENV production
+RUN npm install pm2 -g
 WORKDIR /home/node/app/
-COPY  --from=build /tmp/node_modules /home/node/app/node_modules
-COPY  . .
+RUN chown -R node:node /home/node/app
+COPY --chown=node:node --from=build /tmp/node_modules /home/node/app/node_modules
+COPY --chown=node:node . .
+USER node
 
 EXPOSE 8080
 
-CMD ["bun","index.js"]
+CMD ["node","index.js"]
 #ENTRYPOINT ["tail", "-f", "/dev/null"]
