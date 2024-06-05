@@ -1,12 +1,11 @@
-FROM node:16-alpine AS build
+FROM jarredsumner/bun:latest AS build
 WORKDIR /tmp
 ENV NODE_ENV production
 ADD package.json /tmp/package.json
-RUN npm install 
+RUN bun install 
 
-FROM node:16-alpine
+FROM jarredsumner/bun:latest
 ENV NODE_ENV production
-RUN npm install pm2 -g
 WORKDIR /home/node/app/
 RUN chown -R node:node /home/node/app
 COPY --chown=node:node --from=build /tmp/node_modules /home/node/app/node_modules
@@ -15,5 +14,5 @@ USER node
 
 EXPOSE 8080
 
-CMD ["node","index.js"]
+CMD ["bun","index.js"]
 #ENTRYPOINT ["tail", "-f", "/dev/null"]
