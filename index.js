@@ -69,13 +69,13 @@ function heartBeat() {
             if (!uid) continue
             if (!socket.isAlive) {
                 console.log("unreponse socket detected. terminate:", uid)
-                if (sid === socketMap.get(uid).sid) {
+                if (sid === socketMap.get(uid)?.sid) {
                     socketMap.delete(uid)
                 }
                 socket.terminate();
                 continue
             } else {
-                if (sid !== socketMap.get(uid).sid) {
+                if (sid !== socketMap.get(uid)?.sid) {
                     socket.close(4001, 'close by sever')
                     continue
                 }
