@@ -87,9 +87,9 @@ function heartBeat() {
     } catch (e) {
         console.error(e.message)
     }
-    setTimeout(heartBeat, 10000)
+    setTimeout(heartBeat, 30000)
 }
-const interval = setTimeout(heartBeat, 10000);
+const interval = setTimeout(heartBeat, 30000);
 
 wss.on('close', () => {
     console.log("sever closed")
