@@ -41,7 +41,7 @@ wss.on('connection', (socket, req) => {
     //closeAllSockets(uid)
     socket.uid = uid
     socket.sid = nanoid()
-    socketMap[uid] = socket
+    socketMap.set(uid, socket)
 
     console.log(`${socket.sid}[${socket.uid}] connected. count:${wss.clients.size}`)
     setAlive(socket)
@@ -69,13 +69,13 @@ function heartBeat() {
             if (!uid) continue
             if (!socket.isAlive) {
                 console.log("unreponse socket detected. terminate:", uid)
-                if (sid === socketMap[uid].sid) {
+                if (sid === socketMap.get(uid).sid) {
                     socketMap.delete(uid)
                 }
                 socket.terminate();
                 continue
             } else {
-                if (sid !== socketMap[uid].sid) {
+                if (sid !== socketMap.get(uid).sid) {
                     socket.close(4001, 'close by sever')
                     continue
                 }
