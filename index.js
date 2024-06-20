@@ -79,6 +79,7 @@ function heartBeat() {
                 continue
             } else {
                 if (sid !== socketMap.get(uid)?.sid) {
+                    console.log("close by server")
                     socket.close(4001, 'close by server')
                     continue
                 }
@@ -195,6 +196,9 @@ app.get('/', (req, res) => {
     const ip = getClientIp(req)
     console.log(ip)
     return { ip }
+})
+app.get('/count', (req) => {
+    return wss.clients.length
 })
 app.get('/test', async (req, res) => {
     const url = "https://push.mxfast.com/?uid=55505353_3bb7c8ca69a7ebc83db662dba0c97e4f75940000&token=NVQ6wXHqwMUdJM1mIbt4U1gdPyZKujk3t9%252FAxluCYpIs3qqbYrLIx4ECWp%252BhI%252FEl"
