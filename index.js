@@ -57,6 +57,7 @@ wss.on('connection', (socket, req) => {
     socket.on("close", (reason) => {
         socket.isAlive = false
         console.log(socket.uid, ': disconnected', 'reason:', reason, ' count:', wss.clients.size)
+        socketMap.delete(socket.uid)
     })
 });
 // 检测并关闭失去响应的连接
@@ -70,13 +71,15 @@ function heartBeat() {
             if (!socket.isAlive) {
                 console.log("unreponse socket detected. terminate:", uid)
                 if (sid === socketMap.get(uid)?.sid) {
+                    console.log("delete from map")
                     socketMap.delete(uid)
+
                 }
                 socket.terminate();
                 continue
             } else {
                 if (sid !== socketMap.get(uid)?.sid) {
-                    socket.close(4001, 'close by sever')
+                    socket.close(4001, 'close by server')
                     continue
                 }
             }
