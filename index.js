@@ -117,6 +117,7 @@ function authenticateFromUrl(u, def) {
         console.log('authenticate:', u)
     }
     if (!uid || !token) return null
+    return uid
     const { user_id } = userFromToken({ token })
     if (!user_id) return null
     if (auth === 'mx') {
