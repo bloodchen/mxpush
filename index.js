@@ -29,7 +29,7 @@ function closeAllSockets(uid) {
         }
     }
 }
-const socketMap = {}
+const socketMap = new Map();
 
 wss.on('connection', (socket, req) => {
     const ip = req.socket.remoteAddress;
@@ -63,14 +63,14 @@ wss.on('connection', (socket, req) => {
 function heartBeat() {
     try {
         const now = Math.floor(Date.now() / 1000)
-        console.log('clients:', wss.clients.size)
+        console.log('clients:', socketMap.size);
         for (const socket of wss.clients) {
             const { uid, sid } = socket
             if (!uid) continue
             if (!socket.isAlive) {
                 console.log("unreponse socket detected. terminate:", uid)
                 if (sid === socketMap[uid].sid) {
-                    delete socketMap[uid]
+                    socketMap.delete(uid)
                 }
                 socket.terminate();
                 continue
