@@ -169,7 +169,9 @@ async function startServer() {
             });
 
             /* Register error cb */
-            res.onAborted(err);
+            res.onAborted(err => {
+                console.error("res aborted", err)
+            });
         })
     }
     app.post('/mxpush/post', async (res, req) => {
