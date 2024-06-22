@@ -19,6 +19,6 @@
     "msgpackr": "^1.9.9",
     "nanoid": "^5.0.3",
     "partysocket": "^0.0.14",
-    "ws": "^8.14.2"
+    "uWebSockets.js": "file:./uWebSocket/"
   }
 }

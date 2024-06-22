@@ -45,7 +45,7 @@
         const token = encodeURIComponent("sS8O3gzqXfU/erD+/miNBvU/dBQANIMDXO93Kw94NUpfyZ5Al1J1lH+YTVpLkF9U")//getCookie('MXTOKEN')
         //const socket = new reconnectingWebsocket('ws://localhost:8080?uid=208&token=' + token, [], { maxReconnectionDelay: 20000, maxRetries: 100 });
         const device = "0843869e113ff443cac1d2e6fb430f1a2774000033b5860aa259d932c4f91dab37cfc147"
-        const socket = new reconnectingWebsocket(`wss://mxpush.mxfast.com/?uid=208_${device}&token=${token}`, [], { maxReconnectionDelay: 20000, maxRetries: 100 });
+        const socket = new reconnectingWebsocket(`ws://localhost:8080/?uid=208_${device}&token=${token}`, [], { maxReconnectionDelay: 20000, maxRetries: 100 });
         function parseJson(str) {
             try {
                 return JSON.parse(str)

@@ -1,10 +1,10 @@
-FROM node:16-alpine AS build
+FROM node:18-slim AS build
 WORKDIR /tmp
 ENV NODE_ENV production
 ADD package.json /tmp/package.json
 RUN npm install 
 
-FROM node:16-alpine
+FROM build
 ENV NODE_ENV production
 RUN npm install pm2 -g
 WORKDIR /home/node/app/
