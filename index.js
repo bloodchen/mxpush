@@ -101,7 +101,7 @@ async function startServer() {
         res.end(ip)
     })
     app.get('/count', (res, req) => {
-        return socketMap.size
+        res.end(socketMap.size + '')
     })
     app.get('/test', async (res, req) => {
         const url = "https://push.mxfast.com/?uid=55505353_3bb7c8ca69a7ebc83db662dba0c97e4f75940000&token=NVQ6wXHqwMUdJM1mIbt4U1gdPyZKujk3t9%252FAxluCYpIs3qqbYrLIx4ECWp%252BhI%252FEl"
@@ -115,7 +115,7 @@ async function startServer() {
             if (uid.split('_')[0] == uid)
                 arr.push({ sid: ws.sid, uid: ws.uid })
         }
-        return { count: arr.length, arr }
+        return res.end(JSON.stringify({ count: arr.length, arr }))
     })
 
     app.post('/mxpush/isonline', (res, req) => {
@@ -143,7 +143,6 @@ async function startServer() {
                 }
             });
         })
-
     }
     app.post('/mxpush/post', async (res, req) => {
 
