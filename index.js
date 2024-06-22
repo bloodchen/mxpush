@@ -134,14 +134,42 @@ async function startServer() {
             resolve(err)
         });
         return new Promise(resolve => {
-            let chunks = [];
+            let buffer;
+            /* Register data cb */
             res.onData((ab, isLast) => {
-                chunks.push(Buffer.from(ab));
+                let chunk = Buffer.from(ab);
                 if (isLast) {
-                    let body = Buffer.concat(chunks).toString();
-                    resolve(JSON.parse(body))
+                    let json;
+                    if (buffer) {
+                        try {
+                            json = JSON.parse(Buffer.concat([buffer, chunk]));
+                        } catch (e) {
+                            /* res.close calls onAborted */
+                            res.close();
+                            return;
+                        }
+                        resolve(json);
+                    } else {
+                        try {
+                            json = JSON.parse(chunk);
+                        } catch (e) {
+                            /* res.close calls onAborted */
+                            res.close();
+                            return;
+                        }
+                        resolve(json);
+                    }
+                } else {
+                    if (buffer) {
+                        buffer = Buffer.concat([buffer, chunk]);
+                    } else {
+                        buffer = Buffer.concat([chunk]);
+                    }
                 }
             });
+
+            /* Register error cb */
+            res.onAborted(err);
         })
     }
     app.post('/mxpush/post', async (res, req) => {
