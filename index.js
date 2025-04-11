@@ -110,9 +110,9 @@ async function startServer() {
     app.get('/mxpush/info/', (res, req) => {
         const uid = req.query.uid
         const arr = []
-        for (const uid in socketMap) {
-            const ws = socketMap.get(uid)
-            if (uid.split('_')[0] == uid)
+        for (const luid in socketMap) {
+            const ws = socketMap.get(luid)
+            if (luid.split('_')[0] == uid)
                 arr.push({ sid: ws.sid, uid: ws.uid })
         }
         return res.end(JSON.stringify({ count: arr.length, arr }))
