@@ -9,15 +9,17 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
 	"github.com/joho/godotenv"
 	"github.com/teris-io/shortid"
-	"github.com/tidwall/gjson"
 )
 
 var (
@@ -29,10 +31,11 @@ type Config struct {
 }
 
 type Client struct {
-	UID   string
-	SID   string
-	Conn  *websocket.Conn
-	Mutex sync.Mutex
+	UID    string
+	SID    string
+	Conn   *websocket.Conn
+	Mutex  sync.Mutex
+	Buffer []byte // 复用缓冲区减少内存分配
 }
 
 type Server struct {
@@ -279,14 +282,26 @@ func (s *Server) handleWebSocket(c *websocket.Conn) {
 		log.Printf("Client disconnected: %s count: %d", uid, s.GetClientCount())
 	}()
 
-	// Handle messages
+	// 初始化缓冲区
+	if client.Buffer == nil {
+		client.Buffer = make([]byte, 0, 1024) // 预分配1KB缓冲区
+	}
+
+	// Handle messages with optimized memory usage
 	for {
-		_, message, err := c.ReadMessage()
+		messageType, message, err := c.ReadMessage()
 		if err != nil {
-			log.Printf("Read error: %v", err)
+			log.Printf("WebSocket read error: %v", err)
 			break
 		}
-		log.Printf("Received message from %s: %s", uid, string(message))
+
+		// 只处理文本消息，忽略二进制消息以节省内存
+		if messageType == websocket.TextMessage {
+			// 复用缓冲区，避免频繁分配
+			client.Buffer = client.Buffer[:0]
+			client.Buffer = append(client.Buffer, message...)
+			log.Printf("Received message from %s: %s", uid, string(client.Buffer))
+		}
 	}
 }
 
@@ -319,55 +334,82 @@ func (s *Server) handleGetInfo(c *fiber.Ctx) error {
 	})
 }
 
-func (s *Server) handleIsOnline(c *fiber.Ctx) error {
-	// Get raw JSON body
-	body := c.Body()
+// 预定义结构体减少内存分配
+type IsOnlineRequest struct {
+	UIDs interface{} `json:"uids"`
+}
 
-	// Use gjson to parse uids field
-	uidsResult := gjson.GetBytes(body, "uids")
-	if !uidsResult.Exists() {
-		return c.Status(400).JSON(fiber.Map{"code": 400, "msg": "uids field is required"})
+type IsOnlineResponse struct {
+	Code   int      `json:"code"`
+	Result []string `json:"result"`
+}
+
+func (s *Server) handleIsOnline(c *fiber.Ctx) error {
+	// 使用预定义结构体而非gjson
+	var req IsOnlineRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"code": 400, "msg": "invalid JSON"})
 	}
 
 	var uids []string
-	if uidsResult.IsArray() {
-		// Handle array format: ["uid1", "uid2"] or [123, 456]
-		uidsResult.ForEach(func(_, value gjson.Result) bool {
-			uids = append(uids, value.String())
-			return true
-		})
-	} else {
-		// Handle string format: "uid1,uid2"
-		uids = strings.Split(uidsResult.String(), ",")
+	switch v := req.UIDs.(type) {
+	case []interface{}:
+		// Handle array format
+		uids = make([]string, 0, len(v))
+		for _, uid := range v {
+			uids = append(uids, fmt.Sprintf("%v", uid))
+		}
+	case string:
+		// Handle string format
+		uids = strings.Split(v, ",")
+	default:
+		return c.Status(400).JSON(fiber.Map{"code": 400, "msg": "uids field is required"})
 	}
 
-	result := []string{}
+	// 预分配结果切片
+	result := make([]string, 0, len(uids))
 	for _, uid := range uids {
 		if s.FindClient(uid) != nil {
 			result = append(result, uid)
 		}
 	}
 
-	return c.JSON(fiber.Map{
-		"code":   0,
-		"result": result,
+	return c.JSON(IsOnlineResponse{
+		Code:   0,
+		Result: result,
 	})
 }
 
-func (s *Server) handlePost(c *fiber.Ctx) error {
-	// Get raw JSON body
-	body := c.Body()
+// 优化的消息发送结构体
+type MessageItem struct {
+	UID  string                 `json:"uid"`
+	R    bool                   `json:"r,omitempty"`
+	Data map[string]interface{} `json:"-"` // 其他字段动态解析
+}
 
-	// Use gjson to parse key field
-	keyResult := gjson.GetBytes(body, "key")
-	if !keyResult.Exists() {
-		return c.Status(400).JSON(fiber.Map{"code": 400, "msg": "key field is required"})
+type PostRequestOptimized struct {
+	Items []json.RawMessage `json:"items"`
+	Key   string            `json:"key"`
+}
+
+type PostResponse struct {
+	Code        int                    `json:"code"`
+	Delivered   int                    `json:"delivered"`
+	Undelivered string                 `json:"undelivered"`
+	Ret         map[string]interface{} `json:"ret"`
+}
+
+func (s *Server) handlePost(c *fiber.Ctx) error {
+	// 使用优化的结构体解析
+	var req PostRequestOptimized
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"code": 400, "msg": "invalid JSON"})
 	}
 
 	// Check API key
 	validKey := false
 	for _, key := range s.Config.APIKeys {
-		if key == keyResult.String() {
+		if key == req.Key {
 			validKey = true
 			break
 		}
@@ -376,60 +418,58 @@ func (s *Server) handlePost(c *fiber.Ctx) error {
 		return c.Status(401).JSON(fiber.Map{"code": 101, "msg": "invalid call"})
 	}
 
-	// Use gjson to parse items array
-	itemsResult := gjson.GetBytes(body, "items")
-	if !itemsResult.Exists() || !itemsResult.IsArray() {
+	if len(req.Items) == 0 {
 		return c.Status(400).JSON(fiber.Map{"code": 400, "msg": "items field is required and must be an array"})
 	}
 
-	log.Printf("Got message with %d items", len(itemsResult.Array()))
+	log.Printf("Got message with %d items", len(req.Items))
 
 	delivered := 0
-	ret := make(map[string]interface{})
+	// 预分配map减少内存分配
+	ret := make(map[string]interface{}, len(req.Items)*2)
 
-	// Iterate through items using gjson
-	var hasError bool
-	var errorMsg string
-	itemsResult.ForEach(func(_, itemResult gjson.Result) bool {
-		// Get uid field from each item
-		uidResult := itemResult.Get("uid")
-		if !uidResult.Exists() || uidResult.String() == "" {
-			hasError = true
-			errorMsg = "uid is missing"
-			return false // Stop iteration
+	// 处理每个消息项
+	for _, itemRaw := range req.Items {
+		// 先解析基本字段
+		var basicItem struct {
+			UID string `json:"uid"`
+			R   bool   `json:"r,omitempty"`
+		}
+		if err := json.Unmarshal(itemRaw, &basicItem); err != nil {
+			continue
 		}
 
-		uids := strings.Split(uidResult.String(), ",")
+		if basicItem.UID == "" {
+			return c.Status(400).JSON(fiber.Map{"code": 400, "msg": "uid is missing"})
+		}
+
+		uids := strings.Split(basicItem.UID, ",")
 		for _, uid := range uids {
 			client := s.FindClient(uid)
 			if client != nil {
 				log.Printf("Found socket sid: %s uid: %s", client.SID, client.UID)
 
-				// Check if this is a request-response mode
-				rResult := itemResult.Get("r")
-				if rResult.Exists() && rResult.Bool() {
-					// TODO: 实现请求-响应模式 (getReply功能)
-					// 目前暂不支持_r模式，返回错误
+				if basicItem.R {
+					// TODO: 实现请求-响应模式
 					ret[uid] = fiber.Map{"code": 100, "msg": "request-response mode not implemented"}
 				} else {
-					// Create message without uid field using gjson
-					msgMap := make(map[string]interface{})
-					itemResult.ForEach(func(key, value gjson.Result) bool {
-						if key.String() != "uid" {
-							msgMap[key.String()] = value.Value()
-						}
-						return true
-					})
+					// 解析完整消息并移除uid字段
+					var fullMsg map[string]interface{}
+					if err := json.Unmarshal(itemRaw, &fullMsg); err != nil {
+						ret[uid] = fiber.Map{"code": 101, "msg": "parse error"}
+						continue
+					}
+					delete(fullMsg, "uid") // 移除uid字段
 
 					client.Mutex.Lock()
-					err := client.Conn.WriteJSON(msgMap)
+					err := client.Conn.WriteJSON(fullMsg)
 					client.Mutex.Unlock()
 
 					if err != nil {
 						log.Printf("Send error: %v", err)
 						ret[uid] = fiber.Map{"code": 101, "msg": "send failed"}
 					} else {
-						log.Printf("Message sent. %s[%s] msg: %+v", client.SID, client.UID, msgMap)
+						log.Printf("Message sent. %s[%s] msg: %+v", client.SID, client.UID, fullMsg)
 						ret[uid] = fiber.Map{"code": 0, "msg": "data sent"}
 						delivered++
 					}
@@ -439,19 +479,13 @@ func (s *Server) handlePost(c *fiber.Ctx) error {
 				ret[uid] = fiber.Map{"code": 101, "msg": "socket broken"}
 			}
 		}
-		return true // Continue iteration
-	})
-
-	// Check for errors that occurred during iteration
-	if hasError {
-		return c.Status(400).JSON(fiber.Map{"code": 100, "msg": errorMsg})
 	}
 
-	return c.JSON(fiber.Map{
-		"code":        0,
-		"delivered":   delivered,
-		"undelivered": "",
-		"ret":         ret,
+	return c.JSON(PostResponse{
+		Code:        0,
+		Delivered:   delivered,
+		Undelivered: "",
+		Ret:         ret,
 	})
 }
 
@@ -460,7 +494,73 @@ func (s *Server) handleRoot(c *fiber.Ctx) error {
 	return c.SendString(ip)
 }
 
+// 内存统计API
+func (s *Server) handleMemStats(c *fiber.Ctx) error {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+
+	return c.JSON(fiber.Map{
+		"alloc_kb":       m.Alloc / 1024,
+		"total_alloc_kb": m.TotalAlloc / 1024,
+		"sys_kb":         m.Sys / 1024,
+		"heap_kb":        m.HeapAlloc / 1024,
+		"heap_sys_kb":    m.HeapSys / 1024,
+		"num_gc":         m.NumGC,
+		"goroutines":     runtime.NumGoroutine(),
+		"clients":        s.GetClientCount(),
+		"gc_cpu_percent": m.GCCPUFraction * 100,
+	})
+}
+
+// 内存优化配置
+func setupMemoryOptimization() {
+	// 设置GC目标百分比，降低内存使用
+	debug.SetGCPercent(50) // 默认100，设置为50可以更频繁GC
+
+	// 设置内存限制（如果环境变量中有设置）
+	if memLimit := os.Getenv("GOMEMLIMIT"); memLimit != "" {
+		log.Printf("Memory limit set to: %s", memLimit)
+	}
+
+	// 设置最大处理器数量
+	if maxProcs := os.Getenv("GOMAXPROCS"); maxProcs == "" {
+		// 如果没有设置，使用CPU核心数
+		runtime.GOMAXPROCS(runtime.NumCPU())
+	}
+
+	log.Printf("Memory optimization configured - GC: 50%%, MaxProcs: %d", runtime.GOMAXPROCS(0))
+}
+
+// 内存监控
+func startMemoryMonitor() {
+	ticker := time.NewTicker(30 * time.Second) // 每30秒监控一次
+	defer ticker.Stop()
+
+	for range ticker.C {
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+
+		// 记录关键内存指标
+		log.Printf("Memory Stats - Alloc: %d KB, TotalAlloc: %d KB, Sys: %d KB, NumGC: %d, Goroutines: %d",
+			m.Alloc/1024,
+			m.TotalAlloc/1024,
+			m.Sys/1024,
+			m.NumGC,
+			runtime.NumGoroutine(),
+		)
+
+		// 如果内存使用过高，强制GC
+		if m.Alloc > 100*1024*1024 { // 100MB
+			log.Printf("High memory usage detected, forcing GC")
+			runtime.GC()
+		}
+	}
+}
+
 func main() {
+	// 内存优化配置
+	setupMemoryOptimization()
+
 	// Load environment variables from .env file
 	err := godotenv.Load()
 	if err != nil {
@@ -473,6 +573,9 @@ func main() {
 		tokenPass = "2rnma5xsctJhx1Z$#%^09FYkRfuAsxTB" // fallback
 	}
 
+	// 启动内存监控
+	go startMemoryMonitor()
+
 	server := NewServer()
 
 	app := fiber.New()
@@ -484,6 +587,7 @@ func main() {
 	app.Post("/mxpush/isonline", server.handleIsOnline)
 	app.Post("/mxpush/post", server.handlePost)
 	app.Get("/ip", server.handleRoot)
+	app.Get("/memstats", server.handleMemStats) // 内存统计API
 
 	// WebSocket endpoint
 	app.Use("/", websocket.New(server.handleWebSocket))
