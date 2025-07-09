@@ -40,7 +40,7 @@ function authenticateFromUrl(u, def) {
     return uid
 }
 
-async function startServer() {
+export async function createServer() {
     const app = uWs.App({})
 
     app.ws('/*', {
@@ -210,15 +210,21 @@ async function startServer() {
         res.end(JSON.stringify({ code: 0, delivered, undelivered, ret }));
 
     })
-    const port = process.env.port || 8080
+    return { app };
+}
+
+// 如果直接运行此文件，启动服务器
+if (import.meta.url === new URL(process.argv[1], 'file://').href) {
+    const { app } = await createServer();
+    const port = process.env.PORT || 8080;
     app.listen(port, (token) => {
         if (token)
             console.log("Starting mxpush service on:", port)
         else
             console.log('Failed to listen to port ' + port);
     });
-
 }
+
 function decrypt({ data, password, from_encoding = 'hex', to_encoding = 'utf8', length = 256 }) {
     try {
         const buf = Buffer.from(data, from_encoding)
@@ -250,7 +256,6 @@ function userFromToken({ token }) {
     return {}
 }
 dotenv.config()
-startServer()
 function getClientIp(req, res) {
     const ip = req.getHeader('cf-connecting-ip') || req.getHeader('x-forwarded-for') || req.getHeader('x-real-ip') || res.getRemoteAddressAsText();
     return Buffer.from(ip).toString()

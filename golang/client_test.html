@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>mxpush Golang Client Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .message {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        input, button, textarea {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>mxpush Golang Client Test</h1>
+    
+    <div class="container">
+        <h3>Connection</h3>
+        <div>
+            <label>Server URL:</label>
+            <input type="text" id="serverUrl" value="ws://localhost:8080" style="width: 300px;">
+        </div>
+        <div>
+            <label>UID:</label>
+            <input type="text" id="uid" value="test_user_123" style="width: 200px;">
+        </div>
+        <div>
+            <label>Token:</label>
+            <input type="text" id="token" value="dummy_token" style="width: 300px;">
+        </div>
+        <div>
+            <button onclick="connect()">Connect</button>
+            <button onclick="disconnect()">Disconnect</button>
+        </div>
+        <div id="status" class="status disconnected">Disconnected</div>
+    </div>
+
+    <div class="container">
+        <h3>Send Message via HTTP API</h3>
+        <div>
+            <label>API URL:</label>
+            <input type="text" id="apiUrl" value="http://localhost:8080/mxpush/post" style="width: 300px;">
+        </div>
+        <div>
+            <label>Target UID:</label>
+            <input type="text" id="targetUid" value="test_user_123" style="width: 200px;">
+        </div>
+        <div>
+            <label>API Key:</label>
+            <input type="text" id="apiKey" value="7ef733a9-6d07-4c9f-88c1-f3708f4362cc" style="width: 300px;">
+        </div>
+        <div>
+            <label>Message:</label>
+            <input type="text" id="message" value="Hello from HTTP API!" style="width: 300px;">
+        </div>
+        <div>
+            <button onclick="sendMessage()">Send Message</button>
+            <button onclick="checkStatus()">Check Server Status</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h3>Messages Log</h3>
+        <textarea id="log" readonly></textarea>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <script>
+        let ws = null;
+        const log = document.getElementById('log');
+        const status = document.getElementById('status');
+
+        function addLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            log.value += `[${timestamp}] ${message}\n`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function updateStatus(connected) {
+            if (connected) {
+                status.textContent = 'Connected';
+                status.className = 'status connected';
+            } else {
+                status.textContent = 'Disconnected';
+                status.className = 'status disconnected';
+            }
+        }
+
+        function connect() {
+            const serverUrl = document.getElementById('serverUrl').value;
+            const uid = document.getElementById('uid').value;
+            const token = document.getElementById('token').value;
+            
+            const wsUrl = `${serverUrl}?uid=${encodeURIComponent(uid)}&token=${encodeURIComponent(token)}&auth=mx`;
+            
+            try {
+                ws = new WebSocket(wsUrl);
+                
+                ws.onopen = function(event) {
+                    addLog('WebSocket connected');
+                    updateStatus(true);
+                };
+                
+                ws.onmessage = function(event) {
+                    addLog(`Received: ${event.data}`);
+                };
+                
+                ws.onclose = function(event) {
+                    addLog(`WebSocket closed: ${event.code} ${event.reason}`);
+                    updateStatus(false);
+                };
+                
+                ws.onerror = function(error) {
+                    addLog(`WebSocket error: ${error}`);
+                    updateStatus(false);
+                };
+                
+            } catch (error) {
+                addLog(`Connection error: ${error}`);
+                updateStatus(false);
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        async function sendMessage() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const targetUid = document.getElementById('targetUid').value;
+            const apiKey = document.getElementById('apiKey').value;
+            const message = document.getElementById('message').value;
+            
+            const payload = {
+                items: [
+                    {
+                        uid: targetUid,
+                        data: {
+                            type: 'test',
+                            message: message,
+                            timestamp: new Date().toISOString()
+                        }
+                    }
+                ],
+                key: apiKey
+            };
+            
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                addLog(`HTTP API Response: ${JSON.stringify(result, null, 2)}`);
+            } catch (error) {
+                addLog(`HTTP API Error: ${error}`);
+            }
+        }
+
+        async function checkStatus() {
+            try {
+                const response = await fetch('http://localhost:8080/count');
+                const count = await response.text();
+                addLog(`Server Status: ${count} clients connected`);
+                
+                const urlResponse = await fetch('http://localhost:8080/mxpush/url');
+                const urlResult = await urlResponse.json();
+                addLog(`Push URL: ${JSON.stringify(urlResult)}`);
+            } catch (error) {
+                addLog(`Status check error: ${error}`);
+            }
+        }
+
+        function clearLog() {
+            log.value = '';
+        }
+
+        // Add initial log message
+        addLog('mxpush Golang Client Test Ready');
+        addLog('Note: This is a test client for the Golang version of mxpush');
+        addLog('Make sure the server is running on the specified URL before connecting');
+    </script>
+</body>
+</html>
