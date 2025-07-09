@@ -237,6 +237,9 @@ func authenticateFromURL(urlStr string) string {
 }
 
 func (s *Server) handleWebSocket(c *websocket.Conn) {
+	// 确保连接在函数退出时被关闭
+	defer c.Close()
+	
 	// Authenticate from query parameters
 	token := c.Query("token")
 	uid := c.Query("uid")
@@ -289,6 +292,9 @@ func (s *Server) handleWebSocket(c *websocket.Conn) {
 
 	// Handle messages with optimized memory usage
 	for {
+		// 设置读超时，防止连接假死导致goroutine泄漏
+		c.SetReadDeadline(time.Now().Add(60 * time.Second))
+		
 		messageType, message, err := c.ReadMessage()
 		if err != nil {
 			log.Printf("WebSocket read error: %v", err)
