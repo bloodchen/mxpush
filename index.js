@@ -274,15 +274,21 @@ setInterval(() => {
 }, HEARTBEAT_MS);
 
 // 2) 全局清道夫：扫描并踢出超时连接
-setInterval(() => {
+const TIMEOUT_MS = HEARTBEAT_MS * (HEARTBEAT_TOL + 1); // Define TIMEOUT_MS based on heartbeat settings
+/**
+ * 关闭超时的 socket 连接
+ * 遍历所有已连接的 ws，如果超时则关闭
+ */
+function closeTimeoutSockets() {
     const now = Date.now();
-    for (const ws of clients) {
-        if (now - (ws._last || 0) > TIMEOUT_MS) {
-            try { ws.end(4000, 'heartbeat timeout'); } catch { }
+    for (const set of socketsByUid.values()) {
+        for (const ws of set) {
+            if (now - (ws._last || 0) > TIMEOUT_MS) {
+                try { ws.end(4000, 'heartbeat timeout'); } catch { }
+            }
         }
     }
-}, 10000);
-
+}
 function decrypt({ data, password, from_encoding = 'hex', to_encoding = 'utf8', length = 256 }) {
     try {
         const buf = Buffer.from(data, from_encoding)
