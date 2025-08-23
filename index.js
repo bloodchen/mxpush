@@ -100,6 +100,7 @@ export async function createServer() {
             const ud = ws.getUserData();
             addSocket(ud.uid, ws);
             console.log(`Client connected: uid=${ud.uid} sid=${ud.sid} total=${totalConnections()}`);
+            ws.send('{"t":"ping"}');
         },
 
         message: (ws, message, isBinary) => {
