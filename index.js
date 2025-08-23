@@ -247,7 +247,7 @@ export async function createServer() {
 // 如果直接运行此文件，启动服务器
 //if (import.meta.url === new URL(process.argv[1], 'file://').href) {
 const { app } = await createServer();
-const port = process.env.PORT || 8080;
+const port = 8080;
 app.listen(port, (token) => {
     if (token) {
         listenSocket = token;
