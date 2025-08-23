@@ -68,12 +68,12 @@ export async function createServer() {
         closeOnBackpressureLimit: true,         // 超限直接断，保护整体延迟
 
         upgrade: (res, req, context) => {
-            let method = req.getMethod();
-            let host = req.getHeader('host');
-            let url = req.getUrl();
-            let query = req.getQuery();
-            let fullUrl = `${method}://${host}${url}${query ? '?' + query : ''}`;
-            const uid = authenticateFromUrl(fullUrl, `http://${host}`)
+            const host = req.getHeader('host');
+            const path = req.getUrl();
+            const query = req.getQuery();
+
+            const fullUrl = `http://${host}${path}${query ? '?' + query : ''}`;  // ✅
+            const uid = authenticateFromUrl(fullUrl);
             const sid = nanoid()
             if (!uid) {
                 console.error('rejected one client:', fullUrl);
