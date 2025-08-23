@@ -1,4 +1,4 @@
-FROM node:18-slim AS build
+FROM node:20-slim AS build
 WORKDIR /tmp
 ENV NODE_ENV production
 ADD package.json /tmp/package.json

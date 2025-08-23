@@ -13,12 +13,12 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "mocha": "^10.2.0",
     "chai": "^4.3.10",
+    "esm": "^3.2.25",
+    "mocha": "^10.2.0",
     "node-fetch": "^3.3.2",
-    "ws": "^8.14.2",
     "nyc": "^15.1.0",
-    "esm": "^3.2.25"
+    "ws": "^8.14.2"
   },
   "dependencies": {
     "@fastify/cors": "^8.4.1",
@@ -29,6 +29,6 @@
     "msgpackr": "^1.9.9",
     "nanoid": "^5.0.3",
     "partysocket": "^0.0.14",
-    "uWebSockets.js": "file:./uWebSocket/"
+    "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.52.0"
   }
 }

@@ -13,40 +13,59 @@ function setAlive(socket) {
     // socket.pingCheck = now + 20
 }
 console.log('./uws_' + process.platform + '_' + process.arch + '_' + process.versions.modules + '.node')
-const socketMap = new Map();
-function findSocket(uid) {
-    return socketMap.get(uid)
+// const socketMap = new Map();
+// function findSocket(uid) {
+//     return socketMap.get(uid)
+// }
+const socketsByUid = new Map(); // Map<string, Set<ws>>
+function findSockets(uid) {
+    return socketsByUid.get(uid) || new Set();
 }
-
+function addSocket(uid, ws) {
+    let set = socketsByUid.get(uid);
+    if (!set) { set = new Set(); socketsByUid.set(uid, set); }
+    set.add(ws);
+}
+function removeSocket(uid, ws) {
+    const set = socketsByUid.get(uid);
+    if (!set) return;
+    set.delete(ws);
+    if (set.size === 0) socketsByUid.delete(uid);
+}
+function totalConnections() {
+    let n = 0; for (const s of socketsByUid.values()) n += s.size; return n;
+}
 function authenticateFromUrl(u, def) {
-    const url = new URL(u, def)
-    const params = url.searchParams
-    const auth = params.get('auth') || 'mx'
-    const token = params.get('token')
-    const uid = params.get('uid')
-    const mxid = uid.split('_')[0]
-    if (['208'].includes(mxid)) {
-        console.log('authenticate:', u)
-    }
-    if (!uid || !token) return null
+    const url = new URL(u, def);
+    const params = url.searchParams;
+    const auth = params.get('auth') || 'mx';
+    const token = params.get('token');
+    const uid = params.get('uid');
 
-    const { user_id } = userFromToken({ token })
-    if (!user_id) return null
+    if (!uid || !token) return null;        // 先判空！
+
+    const { user_id } = userFromToken({ token });
+    if (!user_id) return null;
+
     if (auth === 'mx') {
-        const mxid = uid.split('_')[0]
-        if (mxid != user_id) return null
+        const mxid = uid.split('_')[0];
+        if (mxid != user_id) return null;
     }
-    //console.log("auth passed:", uid)
-    return uid
+    return uid;
 }
+
+let listenSocket = null;
 
 export async function createServer() {
     const app = uWs.App({})
 
     app.ws('/*', {
-        compression: uWs.SHARED_COMPRESSOR,
-        maxPayloadLength: 16 * 1024 * 1024,
-        idleTimeout: 60,
+        compression: uWs.DISABLED,//uWs.SHARED_COMPRESSOR,
+        maxPayloadLength: 64 * 1024,
+        idleTimeout: 90,
+        // 4) 背压：一定要加，防止慢连接拖死事件循环
+        maxBackpressure: 256 * 1024,            // 256KB 背压上限
+        closeOnBackpressureLimit: true,         // 超限直接断，保护整体延迟
 
         upgrade: (res, req, context) => {
             let method = req.getMethod();
@@ -56,43 +75,64 @@ export async function createServer() {
             let fullUrl = `${method}://${host}${url}${query ? '?' + query : ''}`;
             const uid = authenticateFromUrl(fullUrl, `http://${host}`)
             const sid = nanoid()
+            if (!uid) {
+                console.error('rejected one client:', fullUrl);
+                res.writeStatus('401 Unauthorized').end('Unauthorized');
+                return;
+            }
             if (uid) {
                 res.upgrade(
-                    { uid, sid },
+                    { uid, sid, pending: new Map() },
                     req.getHeader('sec-websocket-key'),
                     req.getHeader('sec-websocket-protocol'),
                     req.getHeader('sec-websocket-extensions'),
                     context
                 );
-            } else {
-                console.error("rejected one client:", fullUrl)
-                res.writeStatus('401 Unauthorized');
-                res.end('Unauthorized');
             }
         },
 
         open: (ws) => {
-            console.log(`Client connected: ${ws.uid} count:${socketMap.size + 1}`);
-            const ip = ws.getRemoteAddressAsText()
-            socketMap.set(ws.uid, ws)
+            const ud = ws.getUserData();
+            addSocket(ud.uid, ws);
+            console.log(`Client connected: uid=${ud.uid} sid=${ud.sid} total=${totalConnections()}`);
         },
 
         message: (ws, message, isBinary) => {
-            const msg = Buffer.from(message).toString();
-            console.log(`Received message from ${ws.uid}: ${msg}`);
+            const ud = ws.getUserData();
+            const text = Buffer.from(message).toString();
+            // 你的业务日志
+            console.log(`Received message from ${ud.uid}: ${text}`);
+
+            // 匹配 _rr 回包
+            try {
+                const data = JSON.parse(text);
+                if (data && data._rr && data._id) {
+                    const entry = ud.pending.get(data._id);
+                    if (entry) {
+                        clearTimeout(entry.timer);
+                        ud.pending.delete(data._id);
+                        entry.resolve({ code: 0, ...data });
+                    }
+                }
+            } catch { }
         },
 
         ping: (ws) => {
         },
 
         close: (ws, code, message) => {
-            console.log(`Client disconnected: ${ws.uid} code:${code}  total count:${socketMap.size - 1}`);
-            socketMap.delete(ws.uid)
+            const ud = ws.getUserData();
+            // 清理挂起请求
+            for (const [, entry] of ud.pending) { clearTimeout(entry.timer); entry.resolve({ code: 100, msg: 'closed' }); }
+            ud.pending.clear();
+
+            removeSocket(ud.uid, ws);
+            console.log(`Client disconnected: uid=${ud.uid} code=${code} total=${totalConnections()}`);
         }
     })
 
     app.get('/mxpush/url', async (res, req) => {
-        return { url: 'this' }
+        res.end(JSON.stringify({ url: 'this' }))
     })
     app.get('/', (res, req) => {
         let url = req.getUrl();
@@ -101,115 +141,98 @@ export async function createServer() {
         res.end(ip)
     })
     app.get('/count', (res, req) => {
-        res.end(socketMap.size + '')
+        res.end(JSON.stringify({ total: totalConnections(), uids: socketsByUid.size }));
     })
     app.get('/test', async (res, req) => {
         const url = "https://push.mxfast.com/?uid=55505353_3bb7c8ca69a7ebc83db662dba0c97e4f75940000&token=NVQ6wXHqwMUdJM1mIbt4U1gdPyZKujk3t9%252FAxluCYpIs3qqbYrLIx4ECWp%252BhI%252FEl"
-        return authenticateFromUrl(url)
+        const result = authenticateFromUrl(url)
+        res.end(JSON.stringify({ result }))
     })
     app.get('/mxpush/info/', (res, req) => {
-        const uid = req.query.uid
-        const arr = []
-        for (const luid in socketMap) {
-            const ws = socketMap.get(luid)
-            if (luid.split('_')[0] == uid)
-                arr.push({ sid: ws.sid, uid: ws.uid })
-        }
-        return res.end(JSON.stringify({ count: arr.length, arr }))
-    })
-
-    app.post('/mxpush/isonline', (res, req) => {
-        const { uids } = req.body
-        const result = []
-        const arr = uids.split(',')
-        for (const uid of arr) {
-            if (findSocket(uid)) {
-                result.push(uid)
+        const qs = new URLSearchParams(req.getQuery());
+        const mxid = qs.get('uid'); // 这里指前缀 mxid
+        const arr = [];
+        if (mxid) {
+            for (const [uid, set] of socketsByUid.entries()) {
+                if (uid.split('_')[0] === mxid) {
+                    for (const ws of set) {
+                        const ud = ws.getUserData();
+                        arr.push({ sid: ud.sid, uid: ud.uid });
+                    }
+                }
             }
         }
-        return { code: 0, result }
+        res.end(JSON.stringify({ count: arr.length, arr }));
     })
+
+    app.post('/mxpush/isonline', async (res) => {
+        try {
+            const { uids } = await getBody(res);
+            const ids = String(uids || '').split(',').filter(Boolean);
+            const result = ids.filter((id) => findSockets(id).size > 0);
+            res.end(JSON.stringify({ code: 0, result }));
+        } catch {
+            res.writeStatus('400 Bad Request').end('bad json');
+        }
+    });
     async function getBody(res) {
-        res.onAborted(err => {
-            resolve(err)
-        });
-        return new Promise(resolve => {
+        return new Promise((resolve, reject) => {
             let buffer;
-            /* Register data cb */
             res.onData((ab, isLast) => {
-                let chunk = Buffer.from(ab);
+                const chunk = Buffer.from(ab);
+                buffer = buffer ? Buffer.concat([buffer, chunk]) : chunk;
                 if (isLast) {
-                    let json;
-                    if (buffer) {
-                        try {
-                            json = JSON.parse(Buffer.concat([buffer, chunk]));
-                        } catch (e) {
-                            /* res.close calls onAborted */
-                            res.close();
-                            return;
-                        }
-                        resolve(json);
-                    } else {
-                        try {
-                            json = JSON.parse(chunk);
-                        } catch (e) {
-                            /* res.close calls onAborted */
-                            res.close();
-                            return;
-                        }
-                        resolve(json);
-                    }
-                } else {
-                    if (buffer) {
-                        buffer = Buffer.concat([buffer, chunk]);
-                    } else {
-                        buffer = Buffer.concat([chunk]);
-                    }
+                    try { resolve(JSON.parse(buffer)); }
+                    catch (e) { res.close(); /* 触发 onAborted */ }
                 }
             });
-
-            /* Register error cb */
-            res.onAborted(err => {
-                console.error("res aborted", err)
-            });
-        })
+            res.onAborted(() => reject(new Error('aborted')));
+        });
     }
-    app.post('/mxpush/post', async (res, req) => {
+    app.post('/mxpush/post', async (res) => {
+        try {
+            const { items, key } = await getBody(res);
+            if (!config.apiKeys.includes(key)) {
+                res.end(JSON.stringify({ code: 101, msg: 'invalid call' }));
+                return;
+            }
 
-        const { items, key } = await getBody(res)
-        let delivered = 0, undelivered = "", ret = {}
-        if (config.apiKeys.indexOf(key) === -1) return { code: 101, msg: 'invalid call' }
-        console.log("got msg:", items)
-        for (const item of items) {
-            const { uid, _r, data } = item
-            if (!uid) return { code: 100, msg: 'uid is missing' }
-            const uids = uid.split(',')
-            for (const id of uids) {
-                const ws = findSocket(id)
-                if (ws) {
-                    console.log('found socket sid:', ws.sid, 'uid:', ws.uid)
+            let delivered = 0;
+            const ret = {};
+
+            for (const item of items || []) {
+                const { uid, _r, data } = item || {};
+                if (!uid) { continue; }
+
+                const uidList = String(uid).split(',').filter(Boolean);
+                for (const id of uidList) {
+                    const set = findSockets(id);
+                    if (set.size === 0) { ret[id] = { code: 101, msg: 'socket not found' }; continue; }
+
                     if (_r) {
-                        const reply = await getReply(ws, data)
-                        console.log("msg sent and got reply. id:", id, 'msg:', item, "reply:", reply)
-
-                        ret[id] = ret.code === 100 ? ret : { code: 0, reply }
+                        // 取第一条连接做 request-reply
+                        const ws = set.values().next().value;
+                        const reply = await getReply(ws, data);
+                        ret[id] = reply;
+                        if (reply.code === 0) delivered++;
                     } else {
-                        delete item.uid
-                        ws.send(JSON.stringify(item))
-                        console.log(`msg sent. ${ws.sid}[${ws.uid}] msg:`, item)
-                        ret[id] = { code: 0, msg: "data sent" }
-                        delivered++
+                        const payload = JSON.stringify({ ...item, uid: undefined });
+                        let any = false;
+                        for (const ws of set) {
+                            if (ws.send(payload)) any = true;  // send=false 表示背压，跳过
+                        }
+                        ret[id] = any ? { code: 0, msg: 'data sent' } : { code: 102, msg: 'backpressure' };
+                        if (any) delivered++;
                     }
-                } else {
-                    console.error("socket not found for:", id)
-                    ret[id] = { code: 101, msg: "socket broken" }
                 }
             }
+
+            res.end(JSON.stringify({ code: 0, delivered, ret }));
+        } catch (e) {
+            console.error('/mxpush/post error', e?.message);
+            res.writeStatus('400 Bad Request').end('bad json');
         }
-
-        res.end(JSON.stringify({ code: 0, delivered, undelivered, ret }));
-
-    })
+    });
     return { app };
 }
 
@@ -218,8 +241,10 @@ if (import.meta.url === new URL(process.argv[1], 'file://').href) {
     const { app } = await createServer();
     const port = process.env.PORT || 8080;
     app.listen(port, (token) => {
-        if (token)
+        if (token) {
+            listenSocket = token;
             console.log("Starting mxpush service on:", port)
+        }
         else
             console.log('Failed to listen to port ' + port);
     });
@@ -253,31 +278,40 @@ function userFromToken({ token }) {
         console.error(e.message)
     }
     return {}
-    return {}
 }
 dotenv.config()
 function getClientIp(req, res) {
     const ip = req.getHeader('cf-connecting-ip') || req.getHeader('x-forwarded-for') || req.getHeader('x-real-ip') || res.getRemoteAddressAsText();
-    return Buffer.from(ip).toString()
+    if (Buffer.isBuffer(ip)) {
+        return ip.toString();
+    }
+    return ip;
 }
 
 async function getReply(ws, data, timeout = 50000) {
     return new Promise(resolve => {
-        const _id = nanoid()
-        ws.send(JSON.stringify({ _r: true, _id, ...data }))
-        const handler = (message) => {
-            setAlive(ws)
-            const data = JSON.parse(message)
-            const { _rr } = data
-            if (_rr && data._id === _id) {
-                resolve(data)
-                ws.off('message', handler)
-            }
-        }
-        ws.on('message', handler)
-        setTimeout(() => {
-            ws.off('message', handler)
-            resolve({ code: 100, msg: "timeout" })
-        }, timeout)
+        const ud = ws.getUserData();
+        const _id = nanoid();
+        const payload = JSON.stringify({ _r: true, _id, ...data });
+
+        const ok = ws.send(payload);
+        if (!ok) return resolve({ code: 102, msg: 'backpressure' });
+
+        const timer = setTimeout(() => {
+            ud.pending.delete(_id);
+            resolve({ code: 100, msg: 'timeout' });
+        }, timeout);
+
+        ud.pending.set(_id, { resolve, timer });
     })
 }
+function gracefulShutdown() {
+    if (listenSocket) {
+        uWs.us_listen_socket_close(listenSocket); // 停止接入新连接
+        listenSocket = null;
+    }
+    // 分批通知和关闭现有连接（避免同一时间全部重连）
+    setTimeout(() => process.exit(0), 30_000);
+}
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
