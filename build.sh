@@ -5,6 +5,6 @@ docker container stop $NAME
 docker container rm $NAME
 docker build -t $NAME .
 ##mkdir data && chmod a+rw data
-docker run --name $NAME --ulimit nofile=90000:90000 \
+docker run --name $NAME --ulimit nofile=1048576:1048576 \
     --log-driver json-file --log-opt max-size=200m --log-opt max-file=3 \
     -p $PORT:8080 --restart=always -d $NAME
