@@ -269,6 +269,7 @@ setInterval(() => {
     // 如果你担心与业务混淆，可以发更短： 'p'
     // 客户端收到后回 '{"t":"pong"}'
     // 也可以选择让客户端主动发 pong，这里只发 ping
+    console.log("sending ping")
     app.publish('hb', '{"t":"ping"}');
 }, HEARTBEAT_MS);
 
