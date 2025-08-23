@@ -62,7 +62,8 @@ export async function createServer() {
     app.ws('/*', {
         compression: uWs.DISABLED,//uWs.SHARED_COMPRESSOR,
         maxPayloadLength: 64 * 1024,
-        idleTimeout: 90,
+        sendPingsAutomatically: true,
+        idleTimeout: 120,
         // 4) 背压：一定要加，防止慢连接拖死事件循环
         maxBackpressure: 256 * 1024,            // 256KB 背压上限
         closeOnBackpressureLimit: true,         // 超限直接断，保护整体延迟
@@ -71,7 +72,7 @@ export async function createServer() {
             const host = req.getHeader('host');
             const path = req.getUrl();
             const query = req.getQuery();
-
+            console.log('[UPGRADE]', { host, path, query });
             const fullUrl = `http://${host}${path}${query ? '?' + query : ''}`;  // ✅
             const uid = authenticateFromUrl(fullUrl);
             const sid = nanoid()
@@ -99,7 +100,7 @@ export async function createServer() {
 
         message: (ws, message, isBinary) => {
             const ud = ws.getUserData();
-            const text = Buffer.from(message).toString();
+            const text = Buffer.from(new Uint8Array(message)).toString();
             // 你的业务日志
             console.log(`Received message from ${ud.uid}: ${text}`);
 
