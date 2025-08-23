@@ -6,6 +6,8 @@ import { config } from './config.js'
 import uWs from "uWebSockets.js"
 
 const tokenPass = "2rnma5xsctJhx1Z$#%^09FYkRfuAsxTB"
+const HEARTBEAT_MS = 30000; // 30s 应用层心跳
+const HEARTBEAT_TOL = 2;    // 允许丢 2 次
 
 function setAlive(socket) {
     // socket.isAlive = true
@@ -93,6 +95,8 @@ export async function createServer() {
         },
 
         open: (ws) => {
+            ws.subscribe('hb');          // 订阅心跳频道
+            ws._last = Date.now();
             const ud = ws.getUserData();
             addSocket(ud.uid, ws);
             console.log(`Client connected: uid=${ud.uid} sid=${ud.sid} total=${totalConnections()}`);
@@ -101,6 +105,12 @@ export async function createServer() {
         message: (ws, message, isBinary) => {
             const ud = ws.getUserData();
             const text = Buffer.from(new Uint8Array(message)).toString();
+            if (!isBinary) {
+                if (text === '{"t":"pong"}') {
+                    ws._last = Date.now();   // 记录应用层心跳
+                    return;
+                }
+            }
             // 你的业务日志
             console.log(`Received message from ${ud.uid}: ${text}`);
 
@@ -116,9 +126,6 @@ export async function createServer() {
                     }
                 }
             } catch { }
-        },
-
-        ping: (ws) => {
         },
 
         close: (ws, code, message) => {
@@ -246,7 +253,6 @@ export async function createServer() {
 }
 
 // 如果直接运行此文件，启动服务器
-//if (import.meta.url === new URL(process.argv[1], 'file://').href) {
 const { app } = await createServer();
 const port = 8080;
 app.listen(port, (token) => {
@@ -257,7 +263,24 @@ app.listen(port, (token) => {
     else
         console.log('Failed to listen to port ' + port);
 });
-//}
+// 1) 全局心跳广播（应用层）
+setInterval(() => {
+    // 通过 publish 扇出，底层效率更高
+    // 如果你担心与业务混淆，可以发更短： 'p'
+    // 客户端收到后回 '{"t":"pong"}'
+    // 也可以选择让客户端主动发 pong，这里只发 ping
+    app.publish('hb', '{"t":"ping"}');
+}, HEARTBEAT_MS);
+
+// 2) 全局清道夫：扫描并踢出超时连接
+setInterval(() => {
+    const now = Date.now();
+    for (const ws of clients) {
+        if (now - (ws._last || 0) > TIMEOUT_MS) {
+            try { ws.end(4000, 'heartbeat timeout'); } catch { }
+        }
+    }
+}, 10000);
 
 function decrypt({ data, password, from_encoding = 'hex', to_encoding = 'utf8', length = 256 }) {
     try {
