@@ -175,15 +175,23 @@ export async function createServer() {
             res.writeStatus('400 Bad Request').end('bad json');
         }
     });
+    // 1) HTTP 读 body：getBody()
     async function getBody(res) {
         return new Promise((resolve, reject) => {
             let buffer;
             res.onData((ab, isLast) => {
-                const chunk = Buffer.from(ab);
+                // 一定要拷贝！不要用 Buffer.from(ab)
+                const chunk = Buffer.from(new Uint8Array(ab));
+
                 buffer = buffer ? Buffer.concat([buffer, chunk]) : chunk;
+
                 if (isLast) {
-                    try { resolve(JSON.parse(buffer)); }
-                    catch (e) { res.close(); /* 触发 onAborted */ }
+                    try {
+                        resolve(JSON.parse(buffer.toString('utf8')));
+                    } catch (e) {
+                        // JSON 解析失败就结束请求
+                        res.writeStatus('400 Bad Request').end('bad json');
+                    }
                 }
             });
             res.onAborted(() => reject(new Error('aborted')));
