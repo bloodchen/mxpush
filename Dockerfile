@@ -1,5 +1,5 @@
-# 用 bullseye-slim，兼容性好一些
-FROM node:20-bullseye-slim AS deps
+# 用 bookworm-slim，兼容性好一些
+FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 
 # 关键：装 ca-certificates + git
