@@ -15,27 +15,25 @@ function setAlive(socket) {
     // socket.pingCheck = now + 20
 }
 console.log('./uws_' + process.platform + '_' + process.arch + '_' + process.versions.modules + '.node')
-// const socketMap = new Map();
+//const socketMap = new Map();
 // function findSocket(uid) {
 //     return socketMap.get(uid)
 // }
-const socketsByUid = new Map(); // Map<string, Set<ws>>
+const socketsMap = new Map(); // Map<string, Set<ws>>
 function findSockets(uid) {
-    return socketsByUid.get(uid) || new Set();
+    return socketsMap.get(uid);
 }
 function addSocket(uid, ws) {
-    let set = socketsByUid.get(uid);
-    if (!set) { set = new Set(); socketsByUid.set(uid, set); }
-    set.add(ws);
+    let ws = socketsMap.get(uid);
+    socketsMap.set(uid, ws);
 }
 function removeSocket(uid, ws) {
-    const set = socketsByUid.get(uid);
-    if (!set) return;
-    set.delete(ws);
-    if (set.size === 0) socketsByUid.delete(uid);
+    const ws = socketsMap.get(uid);
+    if (!ws) return;
+    socketsMap.delete(uid);
 }
 function totalConnections() {
-    let n = 0; for (const s of socketsByUid.values()) n += s.size; return n;
+    return socketsMap.size;
 }
 function authenticateFromUrl(u, def) {
     const url = new URL(u, def);
@@ -150,7 +148,7 @@ export async function createServer() {
         res.end(ip)
     })
     app.get('/count', (res, req) => {
-        res.end(JSON.stringify({ total: totalConnections(), uids: socketsByUid.size }));
+        res.end(JSON.stringify({ total: totalConnections(), uids: socketsMap.size }));
     })
     app.get('/test', async (res, req) => {
         const url = "https://push.mxfast.com/?uid=55505353_3bb7c8ca69a7ebc83db662dba0c97e4f75940000&token=NVQ6wXHqwMUdJM1mIbt4U1gdPyZKujk3t9%252FAxluCYpIs3qqbYrLIx4ECWp%252BhI%252FEl"
@@ -162,12 +160,10 @@ export async function createServer() {
         const mxid = qs.get('uid'); // 这里指前缀 mxid
         const arr = [];
         if (mxid) {
-            for (const [uid, set] of socketsByUid.entries()) {
+            for (const [uid, ws] of socketsMap.entries()) {
                 if (uid.split('_')[0] === mxid) {
-                    for (const ws of set) {
-                        const ud = ws.getUserData();
-                        arr.push({ sid: ud.sid, uid: ud.uid });
-                    }
+                    const ud = ws.getUserData();
+                    arr.push({ sid: ud.sid, uid: ud.uid });
                 }
             }
         }
@@ -223,12 +219,11 @@ export async function createServer() {
 
                 const uidList = String(uid).split(',').filter(Boolean);
                 for (const id of uidList) {
-                    const set = findSockets(id);
-                    if (set.size === 0) { ret[id] = { code: 101, msg: 'socket not found' }; continue; }
+                    const ws = findSockets(id);
+                    if (!ws) { ret[id] = { code: 101, msg: 'socket not found' }; continue; }
 
                     if (_r) {
                         // 取第一条连接做 request-reply
-                        const ws = set.values().next().value;
                         const reply = await getReply(ws, data);
                         ret[id] = reply;
                         if (reply.code === 0) delivered++;
@@ -237,9 +232,7 @@ export async function createServer() {
                         console.log("/mxpush/post payload", payload)
 
                         let any = false;
-                        for (const ws of set) {
-                            if (ws.send(payload)) any = true;  // send=false 表示背压，跳过
-                        }
+                        if (ws.send(payload)) any = true;  // send=false 表示背压，跳过
                         ret[id] = any ? { code: 0, msg: 'data sent' } : { code: 102, msg: 'backpressure' };
                         if (any) delivered++;
                     }
@@ -276,22 +269,7 @@ setInterval(() => {
     app.publish('hb', '{"t":"ping"}');
 }, HEARTBEAT_MS);
 
-// 2) 全局清道夫：扫描并踢出超时连接
-const TIMEOUT_MS = HEARTBEAT_MS * (HEARTBEAT_TOL + 1); // Define TIMEOUT_MS based on heartbeat settings
-/**
- * 关闭超时的 socket 连接
- * 遍历所有已连接的 ws，如果超时则关闭
- */
-function closeTimeoutSockets() {
-    const now = Date.now();
-    for (const set of socketsByUid.values()) {
-        for (const ws of set) {
-            if (now - (ws._last || 0) > TIMEOUT_MS) {
-                try { ws.end(4000, 'heartbeat timeout'); } catch { }
-            }
-        }
-    }
-}
+
 function decrypt({ data, password, from_encoding = 'hex', to_encoding = 'utf8', length = 256 }) {
     try {
         const buf = Buffer.from(data, from_encoding)
