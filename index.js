@@ -24,12 +24,12 @@ function findSockets(uid) {
     return socketsMap.get(uid);
 }
 function addSocket(uid, ws) {
-    let ws = socketsMap.get(uid);
+    //let ws = socketsMap.get(uid);
     socketsMap.set(uid, ws);
 }
 function removeSocket(uid, ws) {
-    const ws = socketsMap.get(uid);
-    if (!ws) return;
+    const ws_old = socketsMap.get(uid);
+    if (!ws_old) return;
     socketsMap.delete(uid);
 }
 function totalConnections() {
