@@ -213,7 +213,7 @@ export async function createServer() {
                 res.end(JSON.stringify({ code: 101, msg: 'invalid call' }));
                 return;
             }
-
+            console.log("/mxpush/post", items, key)
             let delivered = 0;
             const ret = {};
 
@@ -234,6 +234,8 @@ export async function createServer() {
                         if (reply.code === 0) delivered++;
                     } else {
                         const payload = JSON.stringify({ ...item, uid: undefined });
+                        console.log("/mxpush/post payload", payload)
+
                         let any = false;
                         for (const ws of set) {
                             if (ws.send(payload)) any = true;  // send=false 表示背压，跳过
@@ -243,7 +245,7 @@ export async function createServer() {
                     }
                 }
             }
-
+            console.log("/mxpush/post result", { code: 0, delivered, ret });
             res.end(JSON.stringify({ code: 0, delivered, ret }));
         } catch (e) {
             console.error('/mxpush/post error', e?.message);
