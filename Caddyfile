@@ -2,15 +2,6 @@
     acme_ca https://acme.zerossl.com/v2/DV90
     email bloodchen@gmail.com
 }
-push.mxfast.com {
-    encode zstd gzip
-    reverse_proxy 134.122.191.180:8100 {
-        transport http {
-            versions 1.1
-        }
-    }
-    log {
-        output file /var/log/caddy/ws.log
-        level info
-    }
+http://push.mxfast.com {
+    reverse_proxy mxpush:8080     
 }
