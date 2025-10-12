@@ -1,0 +1,12 @@
+push.mxfast.com {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8100 {
+        transport http {
+            versions 1.1
+        }
+    }
+    log {
+        output file /var/log/caddy/ws.log
+        level info
+    }
+}
