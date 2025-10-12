@@ -1,5 +1,5 @@
 {
-    default_ca zerossl
+    acme_ca https://acme.zerossl.com/v2/DV90
     email bloodchen@gmail.com
 }
 push.mxfast.com {
