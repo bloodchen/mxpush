@@ -141,12 +141,7 @@ export async function createServer() {
     app.get('/mxpush/url', async (res, req) => {
         res.end(JSON.stringify({ url: 'this' }))
     })
-    app.get('/', (res, req) => {
-        let url = req.getUrl();
-        const ip = getClientIp(req, res)
-        console.log(ip)
-        res.end(ip)
-    })
+    
     app.get('/count', (res, req) => {
         res.end(JSON.stringify({ total: totalConnections(), uids: socketsMap.size }));
     })
