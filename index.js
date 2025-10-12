@@ -256,7 +256,7 @@ export async function createServer() {
 
 // 如果直接运行此文件，启动服务器
 const { app } = await createServer();
-const port = process.env.PORT || 8080;
+const port = process.env.PORT || 80;
 app.listen(port, (token) => {
     if (token) {
         listenSocket = token;
@@ -305,7 +305,7 @@ function userFromToken({ token }) {
     }
     return {}
 }
-//dotenv.config()
+dotenv.config()
 function getClientIp(req, res) {
     const ip = req.getHeader('cf-connecting-ip') || req.getHeader('x-forwarded-for') || req.getHeader('x-real-ip') || res.getRemoteAddressAsText();
     if (Buffer.isBuffer(ip)) {
