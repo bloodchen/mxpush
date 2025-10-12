@@ -2,7 +2,7 @@
     acme_ca https://acme.zerossl.com/v2/DV90
     email bloodchen@gmail.com
 }
-http://push.mxfast.com {
+http://push.mxfast.com http://push1.mxfast.com {
     reverse_proxy mxpush:8080     
 
     log {
