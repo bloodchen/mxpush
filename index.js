@@ -55,88 +55,89 @@ function authenticateFromUrl(u, def) {
 }
 
 let listenSocket = null;
+const websocketBehavior = {
+    compression: uWs.DISABLED,//uWs.SHARED_COMPRESSOR,
+    maxPayloadLength: 64 * 1024,
+    sendPingsAutomatically: true,
+    idleTimeout: 120,
+    // 4) 背压：一定要加，防止慢连接拖死事件循环
+    maxBackpressure: 256 * 1024,            // 256KB 背压上限
+    closeOnBackpressureLimit: true,         // 超限直接断，保护整体延迟
 
+    upgrade: (res, req, context) => {
+        const host = req.getHeader('host');
+        const path = req.getUrl();
+        const query = req.getQuery();
+        console.log('[UPGRADE]', { host, path, query });
+        const fullUrl = `http://${host}${path}${query ? '?' + query : ''}`;  // ✅
+        const uid = authenticateFromUrl(fullUrl);
+        const sid = nanoid()
+        if (!uid) {
+            console.error('rejected one client:', fullUrl);
+            res.writeStatus('401 Unauthorized').end('Unauthorized');
+            return;
+        }
+        if (uid) {
+            res.upgrade(
+                { uid, sid, pending: new Map() },
+                req.getHeader('sec-websocket-key'),
+                req.getHeader('sec-websocket-protocol'),
+                req.getHeader('sec-websocket-extensions'),
+                context
+            );
+        }
+    },
+
+    open: (ws) => {
+        ws.subscribe('hb');          // 订阅心跳频道
+        ws._last = Date.now();
+        const ud = ws.getUserData();
+        addSocket(ud.uid, ws);
+        console.log(`Client connected: uid=${ud.uid} sid=${ud.sid} total=${totalConnections()}`);
+        ws.send('{"t":"ping"}');
+    },
+
+    message: (ws, message, isBinary) => {
+        const ud = ws.getUserData();
+        const text = Buffer.from(new Uint8Array(message)).toString();
+        if (!isBinary) {
+            if (text === '{"t":"pong"}') {
+                ws._last = Date.now();   // 记录应用层心跳
+                return;
+            }
+        }
+        // 你的业务日志
+        console.log(`Received message from ${ud.uid}: ${text}`);
+
+        // 匹配 _rr 回包
+        try {
+            const data = JSON.parse(text);
+            if (data && data._rr && data._id) {
+                const entry = ud.pending.get(data._id);
+                if (entry) {
+                    clearTimeout(entry.timer);
+                    ud.pending.delete(data._id);
+                    entry.resolve({ code: 0, ...data });
+                }
+            }
+        } catch { }
+    },
+
+    close: (ws, code, message) => {
+        const ud = ws.getUserData();
+        // 清理挂起请求
+        for (const [, entry] of ud.pending) { clearTimeout(entry.timer); entry.resolve({ code: 100, msg: 'closed' }); }
+        ud.pending.clear();
+
+        removeSocket(ud.uid, ws);
+        console.log(`Client disconnected: uid=${ud.uid} code=${code} total=${totalConnections()}`);
+    }
+}
 export async function createServer() {
     const app = uWs.App({})
 
-    app.ws('/', {
-        compression: uWs.DISABLED,//uWs.SHARED_COMPRESSOR,
-        maxPayloadLength: 64 * 1024,
-        sendPingsAutomatically: true,
-        idleTimeout: 120,
-        // 4) 背压：一定要加，防止慢连接拖死事件循环
-        maxBackpressure: 256 * 1024,            // 256KB 背压上限
-        closeOnBackpressureLimit: true,         // 超限直接断，保护整体延迟
-
-        upgrade: (res, req, context) => {
-            const host = req.getHeader('host');
-            const path = req.getUrl();
-            const query = req.getQuery();
-            console.log('[UPGRADE]', { host, path, query });
-            const fullUrl = `http://${host}${path}${query ? '?' + query : ''}`;  // ✅
-            const uid = authenticateFromUrl(fullUrl);
-            const sid = nanoid()
-            if (!uid) {
-                console.error('rejected one client:', fullUrl);
-                res.writeStatus('401 Unauthorized').end('Unauthorized');
-                return;
-            }
-            if (uid) {
-                res.upgrade(
-                    { uid, sid, pending: new Map() },
-                    req.getHeader('sec-websocket-key'),
-                    req.getHeader('sec-websocket-protocol'),
-                    req.getHeader('sec-websocket-extensions'),
-                    context
-                );
-            }
-        },
-
-        open: (ws) => {
-            ws.subscribe('hb');          // 订阅心跳频道
-            ws._last = Date.now();
-            const ud = ws.getUserData();
-            addSocket(ud.uid, ws);
-            console.log(`Client connected: uid=${ud.uid} sid=${ud.sid} total=${totalConnections()}`);
-            ws.send('{"t":"ping"}');
-        },
-
-        message: (ws, message, isBinary) => {
-            const ud = ws.getUserData();
-            const text = Buffer.from(new Uint8Array(message)).toString();
-            if (!isBinary) {
-                if (text === '{"t":"pong"}') {
-                    ws._last = Date.now();   // 记录应用层心跳
-                    return;
-                }
-            }
-            // 你的业务日志
-            console.log(`Received message from ${ud.uid}: ${text}`);
-
-            // 匹配 _rr 回包
-            try {
-                const data = JSON.parse(text);
-                if (data && data._rr && data._id) {
-                    const entry = ud.pending.get(data._id);
-                    if (entry) {
-                        clearTimeout(entry.timer);
-                        ud.pending.delete(data._id);
-                        entry.resolve({ code: 0, ...data });
-                    }
-                }
-            } catch { }
-        },
-
-        close: (ws, code, message) => {
-            const ud = ws.getUserData();
-            // 清理挂起请求
-            for (const [, entry] of ud.pending) { clearTimeout(entry.timer); entry.resolve({ code: 100, msg: 'closed' }); }
-            ud.pending.clear();
-
-            removeSocket(ud.uid, ws);
-            console.log(`Client disconnected: uid=${ud.uid} code=${code} total=${totalConnections()}`);
-        }
-    })
+    app.ws('/', websocketBehavior)
+        .ws('/ws', websocketBehavior) //兼容旧版
 
     app.get('/mxpush/url', async (res, req) => {
         res.end(JSON.stringify({ url: 'this' }))
