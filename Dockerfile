@@ -4,8 +4,8 @@ WORKDIR /app
 
 # uWS 安装脚本需要出网/证书；如依赖里有 github 源，还需要 git
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates git \
- && rm -rf /var/lib/apt/lists/*
+    && apt-get install -y --no-install-recommends ca-certificates git \
+    && rm -rf /var/lib/apt/lists/*
 
 # 允许 postinstall（uWS 会在这一步下载 .node）
 ENV npm_config_ignore_scripts=false \
@@ -19,8 +19,8 @@ RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm i --omit=dev; 
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates \
- && rm -rf /var/lib/apt/lists/*
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
 # 安装 PM2（全局）
@@ -36,4 +36,5 @@ HEALTHCHECK --interval=30s --timeout=3s --retries=3 CMD node -e "fetch('http://1
 EXPOSE 8080
 
 # 用 pm2-runtime 托管（对容器友好，一进程一前台）
-CMD ["pm2-runtime", "start", "ecosystem.config.cjs"]
+#CMD ["pm2-runtime", "start", "ecosystem.config.cjs"]
+CMD ["node", "index.js"]
