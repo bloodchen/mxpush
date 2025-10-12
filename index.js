@@ -59,7 +59,7 @@ let listenSocket = null;
 export async function createServer() {
     const app = uWs.App({})
 
-    app.ws('/*', {
+    app.ws('/', {
         compression: uWs.DISABLED,//uWs.SHARED_COMPRESSOR,
         maxPayloadLength: 64 * 1024,
         sendPingsAutomatically: true,
@@ -141,7 +141,7 @@ export async function createServer() {
     app.get('/mxpush/url', async (res, req) => {
         res.end(JSON.stringify({ url: 'this' }))
     })
-    
+
     app.get('/count', (res, req) => {
         res.end(JSON.stringify({ total: totalConnections(), uids: socketsMap.size }));
     })
