@@ -1,5 +1,5 @@
 {
-    acme_ca https://dv.acme-v02.api.pki.goog/directory
+    acme_ca https://api.buypass.com/acme/directory
     email bloodchen@gmail.com
 }
 push.mxfast.com {
