@@ -72,7 +72,7 @@ export async function createServer() {
             const host = req.getHeader('host');
             const path = req.getUrl();
             const query = req.getQuery();
-            //console.log('[UPGRADE]', { host, path, query });
+            console.log('[UPGRADE]', { host, path, query });
             const fullUrl = `http://${host}${path}${query ? '?' + query : ''}`;  // ✅
             const uid = authenticateFromUrl(fullUrl);
             const sid = nanoid()
