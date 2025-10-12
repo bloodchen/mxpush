@@ -25,12 +25,22 @@ function findSockets(uid) {
 }
 function addSocket(uid, ws) {
     //let ws = socketsMap.get(uid);
+    const oldWs = socketsMap.get(uid);
+    if (oldWs && oldWs !== ws) {
+        try {
+            // 主动关闭旧连接
+            oldWs.end(1002, "replaced by new connection");
+        } catch (e) {
+            console.warn("Error closing old connection:", e.message);
+        }
+    }
     socketsMap.set(uid, ws);
 }
 function removeSocket(uid, ws) {
-    const ws_old = socketsMap.get(uid);
-    if (!ws_old) return;
-    socketsMap.delete(uid);
+    const existing = socketsMap.get(uid);
+    if (existing === ws) {
+        socketsMap.delete(uid);
+    }
 }
 function totalConnections() {
     return socketsMap.size;
