@@ -4,7 +4,7 @@
 }
 push.mxfast.com {
     encode zstd gzip
-    reverse_proxy 127.0.0.1:8100 {
+    reverse_proxy 134.122.191.180:8100 {
         transport http {
             versions 1.1
         }
