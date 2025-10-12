@@ -256,7 +256,7 @@ export async function createServer() {
 
 // 如果直接运行此文件，启动服务器
 const { app } = await createServer();
-const port = process.env.PORT || 80;
+const port = 80;
 app.listen(port, (token) => {
     if (token) {
         listenSocket = token;
