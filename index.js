@@ -305,7 +305,7 @@ function userFromToken({ token }) {
     }
     return {}
 }
-dotenv.config()
+//dotenv.config()
 function getClientIp(req, res) {
     const ip = req.getHeader('cf-connecting-ip') || req.getHeader('x-forwarded-for') || req.getHeader('x-real-ip') || res.getRemoteAddressAsText();
     if (Buffer.isBuffer(ip)) {
