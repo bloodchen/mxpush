@@ -7,6 +7,8 @@ docker rm -f caddy >/dev/null 2>&1 || true
 
 docker run --name caddy -d -p 80:80 -p 443:443 \
     -v $PWD/www:/usr/share/caddy \
-    -v $PWD/Caddyfile:/etc/caddy/Caddyfile --network mxnet \
+    -v $PWD/Caddyfile:/etc/caddy/Caddyfile \
+    -v $PWD/caddylog:/var/log/caddy/ \
+    --network mxnet \
     -v caddy_data:/data \
     --restart=always caddy

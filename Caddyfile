@@ -4,4 +4,9 @@
 }
 http://push.mxfast.com {
     reverse_proxy mxpush:8080     
+
+    log {
+        output file /var/log/caddy/ws.log
+        level info
+    }
 }
