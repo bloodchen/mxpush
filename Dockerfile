@@ -21,6 +21,7 @@ WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y libcap2-bin
 
 ENV NODE_ENV=production
 # 安装 PM2（全局）
