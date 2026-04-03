@@ -27,6 +27,7 @@ ENV NODE_ENV=production
 RUN npm i -g pm2@latest
 
 #USER node
+RUN setcap 'cap_net_bind_service=+ep' /usr/local/bin/node
 COPY --chown=node:node --from=deps /app/node_modules ./node_modules
 COPY --chown=node:node . .
 
