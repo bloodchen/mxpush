@@ -26,7 +26,7 @@ ENV NODE_ENV=production
 # 安装 PM2（全局）
 RUN npm i -g pm2@latest
 
-USER node
+#USER node
 COPY --chown=node:node --from=deps /app/node_modules ./node_modules
 COPY --chown=node:node . .
 
